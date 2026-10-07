@@ -22,7 +22,7 @@
       "email": "abidhasan344556@gmail.com",
       "bio": "Ready to work on verified microjobs!",
       "profilePhoto": "https://api.dicebear.com/7.x/avataaars/svg?seed=digitalagent",
-      "balance": 20,
+      "balance": 15,
       "earnings": 5,
       "refCode": "W6T7-ABIDHASAN01",
       "isAdmin": false,
@@ -37,8 +37,8 @@
       "email": "testdada12@gmail.com",
       "bio": "Ready to work on verified microjobs!",
       "profilePhoto": "https://api.dicebear.com/7.x/avataaars/svg?seed=testdada12",
-      "balance": 20,
-      "earnings": 15,
+      "balance": 25,
+      "earnings": 20,
       "refCode": "W6T7-TESTDADA12",
       "isAdmin": false,
       "joinedAt": "2026-10-07",
@@ -46,112 +46,40 @@
       "isBanned": false
     },
     {
-      "username": "worker_test1",
-      "password": "password123",
-      "name": "Worker Test",
-      "email": "worker_test1@example.com",
+      "username": "newuser_1791367456622",
+      "password": "mySecretPassword123",
+      "name": "New User",
+      "email": "newuser_1791367456622@example.com",
       "bio": "Ready to work on verified microjobs!",
-      "profilePhoto": "https://api.dicebear.com/7.x/avataaars/svg?seed=worker_test1",
+      "profilePhoto": "https://api.dicebear.com/7.x/avataaars/svg?seed=newuser_1791367456622",
       "balance": 5,
       "earnings": 0,
-      "refCode": "W6T7-WORKER_TEST1",
-      "isAdmin": false,
-      "joinedAt": "2026-10-07"
-    },
-    {
-      "username": "worker_test2",
-      "password": "password123",
-      "name": "Worker Test 2",
-      "email": "worker_test2@example.com",
-      "bio": "Ready to work on verified microjobs!",
-      "profilePhoto": "https://api.dicebear.com/7.x/avataaars/svg?seed=worker_test2",
-      "balance": 35,
-      "earnings": 0,
-      "refCode": "W6T7-WORKER_TEST2",
+      "refCode": "W6T7-NEWUSER_1791367456622",
       "isAdmin": false,
       "joinedAt": "2026-10-07"
     }
   ],
   "jobs": [
     {
-      "id": 199999999,
-      "poster": "worker_test2",
-      "posterName": "Worker Test 2",
-      "title": "Test Admin Publish & Delete Feature",
-      "category": "Social Media",
-      "pay": 3,
-      "needed": 5,
-      "done": 0,
-      "spentBudget": 0,
-      "inst": "Instructions test",
-      "requiredProof": "Screenshot and user details",
-      "status": "Removed",
-      "createdAt": "10/7/2026",
-      "isDeleted": true,
-      "approvedAt": "2026-10-07T09:31:19.193Z",
-      "approvedBy": "admin",
-      "deletedAt": "2026-10-07T09:31:19.203Z",
-      "deletedBy": "admin",
-      "deleteReason": "Admin removed post",
-      "previousStatus": "Approved"
-    },
-    {
-      "id": 1791365268170,
-      "poster": "worker_test2",
-      "posterName": "Worker Test 2",
-      "title": "Test Facebook Like",
-      "category": "Social Media",
-      "pay": 2,
-      "needed": 10,
-      "done": 0,
-      "spentBudget": 0,
-      "inst": "Like page and screenshot",
-      "requiredProof": "Screenshot",
-      "status": "Removed",
-      "createdAt": "10/7/2026",
-      "approvedAt": "2026-10-07T09:27:48.177Z",
-      "approvedBy": "admin",
-      "isDeleted": true,
-      "deletedAt": "2026-10-07T09:27:48.185Z",
-      "deletedBy": "admin",
-      "deleteReason": "Admin removed",
-      "previousStatus": "Approved"
-    },
-    {
-      "id": 1791365079652,
+      "id": 1791366089732,
       "poster": "abidhasan01",
       "posterName": "Abid",
-      "title": "Test Task",
-      "category": "Testing",
-      "pay": 2,
-      "needed": 5,
-      "done": 0,
-      "spentBudget": 0,
-      "inst": "do this",
-      "requiredProof": "Screenshot and user details",
-      "status": "Approved",
-      "createdAt": "10/7/2026",
-      "approvedAt": "2026-10-07T09:24:46.889Z",
-      "approvedBy": "admin"
-    },
-    {
-      "id": 1791361266439,
-      "poster": "abidhasan01",
-      "posterName": "Abid",
-      "title": "test",
-      "description": "abi jabo na jai aki aa",
-      "category": "YouTube",
+      "title": "sign in",
+      "description": "Do the work and get 5 taka",
+      "category": "Website Visit & Signup",
       "pay": 5,
       "needed": 10,
       "done": 1,
-      "inst": "ophthergaogj irir-0ri0i-0rar0or0i0itr",
-      "requiredProof": "zsgdfzsggdfgdsfg",
-      "deadline": "3 Days",
-      "deadlineTimestamp": 1791620466439,
+      "inst": "inbox us for do your work",
+      "requiredProof": "yes",
+      "deadline": "No Expiry",
       "totalBudget": 50,
       "spentBudget": 5,
       "status": "Approved",
-      "createdAt": "2026-10-07"
+      "createdAt": "2026-10-07",
+      "isDeleted": false,
+      "approvedAt": "2026-10-07T09:41:42.774Z",
+      "approvedBy": "admin"
     },
     {
       "id": 1,
@@ -164,9 +92,7 @@
       "done": 42,
       "inst": "1. Visit YouTube channel @Work6T7Official.\n2. Subscribe and watch the latest video for at least 60 seconds.\n3. Like the video.\n4. Submit your YouTube username and screenshot link as proof.",
       "status": "Approved",
-      "createdAt": "2026-03-10",
-      "approvedAt": "2026-10-07T09:23:32.282Z",
-      "approvedBy": "admin"
+      "createdAt": "2026-03-10"
     },
     {
       "id": 2,
@@ -196,6 +122,24 @@
     }
   ],
   "applications": [
+    {
+      "id": 1791366142838,
+      "jobId": 1791366089732,
+      "title": "sign in",
+      "user": "testdada12",
+      "workerName": "test 12",
+      "workerId": "testdada12",
+      "pay": 5,
+      "status": "Approved",
+      "proof": "hi",
+      "submittedAt": "10/7/2026",
+      "submittedTime": "03:42 PM",
+      "reviewedAt": "10/7/2026",
+      "rewardAmount": 5,
+      "taskOwnerId": "abidhasan01",
+      "taskId": 1791366089732,
+      "taskTitle": "sign in"
+    },
     {
       "id": 1791363526091,
       "jobId": 1791363362408,
@@ -243,72 +187,72 @@
   ],
   "transactions": [
     {
-      "id": "tx_199999999_fee",
-      "user": "worker_test2",
-      "type": "Job Posting Fee",
-      "amount": -10,
-      "direction": "out",
-      "taskId": 199999999,
+      "id": "tx_1791367456712_bonus",
+      "user": "newuser_1791367456622",
+      "type": "Signup Bonus",
+      "amount": 5,
+      "direction": "in",
       "status": "Success",
       "date": "10/7/2026",
-      "time": "09:31 AM",
-      "details": "Non-refundable task creation fee (Task #199999999)",
-      "description": "Task creation fee for \"Test Admin Publish & Delete Feature\" (৳10.00)"
+      "details": "One-time registration bonus added to wallet"
     },
     {
-      "id": "tx_1791365268170_fee",
-      "user": "worker_test2",
-      "type": "Job Posting Fee",
-      "amount": -10,
-      "direction": "out",
-      "taskId": 1791365268170,
+      "id": "tx_1791366313402_wd",
+      "user": "testdada12",
+      "type": "Withdrawal",
+      "amount": -50,
       "status": "Success",
       "date": "10/7/2026",
-      "time": "09:27 AM",
-      "details": "Non-refundable task creation fee (Task #1791365268170)",
-      "description": "Task creation fee for \"Test Facebook Like\" (৳10.00)"
+      "details": "Payout sent to bKash (012190-95906) - Paid"
     },
     {
-      "id": "tx_dep_1791365268156",
-      "user": "worker_test2",
+      "id": "tx_dep_1791366288777",
+      "user": "testdada12",
       "type": "Deposit",
       "amount": 50,
-      "status": "Pending",
-      "date": "10/7/2026",
-      "details": "bKash Deposit Request (TrxID: TRXTEST999_1791365268152) - Pending Admin Verification"
-    },
-    {
-      "id": "tx_1791365268145_bonus",
-      "user": "worker_test2",
-      "type": "Signup Bonus",
-      "amount": 5,
-      "direction": "in",
       "status": "Success",
       "date": "10/7/2026",
-      "details": "One-time registration bonus added to wallet"
+      "details": "bKash Deposit Approved (+৳50.00, TrxID: 4WTV T B5E)"
     },
     {
-      "id": "tx_1791365244740_bonus",
-      "user": "worker_test1",
-      "type": "Signup Bonus",
+      "id": "tx_1791366210355_task_reward",
+      "user": "testdada12",
+      "type": "Task Reward",
       "amount": 5,
       "direction": "in",
+      "taskId": 1791366089732,
+      "submissionId": 1791366142838,
+      "idempotencyKey": "appr_1791366089732_1791366142838_1791366210354_reward",
       "status": "Success",
       "date": "10/7/2026",
-      "details": "One-time registration bonus added to wallet"
+      "time": "09:43 AM",
+      "details": "Task Reward from @abidhasan01 for \"sign in\" (Task #TASK-1791366089732)"
     },
     {
-      "id": "tx_1791365079652_fee",
+      "id": "tx_1791366210354_task_pay",
+      "user": "abidhasan01",
+      "type": "Task Payment",
+      "amount": -5,
+      "direction": "out",
+      "taskId": 1791366089732,
+      "submissionId": 1791366142838,
+      "idempotencyKey": "appr_1791366089732_1791366142838_1791366210354",
+      "status": "Success",
+      "date": "10/7/2026",
+      "time": "09:43 AM",
+      "details": "Task Payment to @testdada12 for \"sign in\" (Task #TASK-1791366089732)"
+    },
+    {
+      "id": "tx_1791366089740_fee",
       "user": "abidhasan01",
       "type": "Job Posting Fee",
       "amount": -10,
-      "direction": "out",
-      "taskId": 1791365079652,
+      "taskId": 1791366089732,
       "status": "Success",
       "date": "10/7/2026",
-      "time": "09:24 AM",
-      "details": "Non-refundable task creation fee (Task #1791365079652)",
-      "description": "Task creation fee for \"Test Task\" (৳10.00)"
+      "time": "03:41 PM",
+      "details": "Task Posting Fee for Task #1791366089732 (৳10.00)",
+      "description": "Paid ৳10 publication fee to submit task: sign in"
     },
     {
       "id": "tx_1791363551328_task_reward",
@@ -553,17 +497,17 @@
   ],
   "deposits": [
     {
-      "id": 1791365268156,
-      "user": "worker_test2",
-      "userName": "Worker Test 2",
+      "id": 1791366288777,
+      "user": "testdada12",
+      "userName": "test 12",
       "amount": 50,
-      "trxId": "TRXTEST999_1791365268152",
-      "senderNumber": "01711111111",
+      "trxId": "4WTV T B5E",
+      "senderNumber": "019373889322",
       "screenshot": "",
       "method": "bKash",
       "status": "Approved",
       "date": "10/7/2026",
-      "time": "09:27 AM"
+      "time": "03:44 PM"
     },
     {
       "id": 1791361159340,
@@ -601,7 +545,19 @@
       "date": "10/7/2026"
     }
   ],
-  "withdrawals": [],
+  "withdrawals": [
+    {
+      "id": 1791366313402,
+      "user": "testdada12",
+      "userName": "test 12",
+      "amount": 50,
+      "acc": "012190-95906",
+      "method": "bKash",
+      "status": "Paid",
+      "date": "10/7/2026",
+      "time": "03:45 PM"
+    }
+  ],
   "tickets": [
     {
       "id": 1791317253410,
@@ -617,107 +573,67 @@
   "disputes": [],
   "activityLogs": [
     {
-      "id": "act_1791365479203_wfxd",
-      "timestamp": "10/7/2026, 9:31:19 AM",
-      "user": "admin",
-      "action": "TASK_REMOVED",
-      "details": "Task #199999999 (\"Test Admin Publish & Delete Feature\") removed by @admin. Previous status: Approved. Reason: Admin removed post",
-      "category": "admin"
-    },
-    {
-      "id": "act_1791365479193_u4lm",
-      "timestamp": "10/7/2026, 9:31:19 AM",
-      "user": "admin",
-      "action": "JOB_APPROVED",
-      "details": "Approved task #199999999: \"Test Admin Publish & Delete Feature\" for marketplace",
-      "category": "admin"
-    },
-    {
-      "id": "act_1791365479183_x19v",
-      "timestamp": "10/7/2026, 9:31:19 AM",
-      "user": "worker_test2",
-      "action": "TASK_POSTED",
-      "details": "Created new task \"Test Admin Publish & Delete Feature\" (Posting Fee: ৳10)",
-      "category": "task"
-    },
-    {
-      "id": "act_1791365268185_rjs4",
-      "timestamp": "10/7/2026, 9:27:48 AM",
-      "user": "admin",
-      "action": "TASK_REMOVED",
-      "details": "Task #1791365268170 (\"Test Facebook Like\") removed by @admin. Previous status: Approved. Reason: Admin removed",
-      "category": "admin"
-    },
-    {
-      "id": "act_1791365268177_gfar",
-      "timestamp": "10/7/2026, 9:27:48 AM",
-      "user": "admin",
-      "action": "JOB_APPROVED",
-      "details": "Approved task #1791365268170: \"Test Facebook Like\" for marketplace",
-      "category": "admin"
-    },
-    {
-      "id": "act_1791365268170_6anb",
-      "timestamp": "10/7/2026, 9:27:48 AM",
-      "user": "worker_test2",
-      "action": "TASK_POSTED",
-      "details": "Created new task \"Test Facebook Like\" (Posting Fee: ৳10)",
-      "category": "task"
-    },
-    {
-      "id": "act_1791365268164_m65t",
-      "timestamp": "10/7/2026, 9:27:48 AM",
-      "user": "admin",
-      "action": "DEPOSIT_APPROVED",
-      "details": "Approved deposit #1791365268156 (৳50, TrxID: TRXTEST999_1791365268152) for @worker_test2",
-      "category": "finance"
-    },
-    {
-      "id": "act_1791365268157_t50x",
-      "timestamp": "10/7/2026, 9:27:48 AM",
-      "user": "worker_test2",
-      "action": "DEPOSIT_REQUEST",
-      "details": "Submitted deposit request ৳50 via bKash (TrxID: TRXTEST999_1791365268152)",
-      "category": "finance"
-    },
-    {
-      "id": "act_1791365268145_rpzx",
-      "timestamp": "10/7/2026, 9:27:48 AM",
-      "user": "worker_test2",
-      "action": "USER_REGISTERED",
-      "details": "Registered new account @worker_test2. Granted ৳5 signup bonus.",
+      "id": "act_1791367456742_c35z",
+      "timestamp": "10/7/2026, 10:04:16 AM",
+      "user": "newuser_1791367456622",
+      "action": "USER_LOGIN",
+      "details": "Logged into account @newuser_1791367456622",
       "category": "auth"
     },
     {
-      "id": "act_1791365244740_2f5o",
-      "timestamp": "10/7/2026, 9:27:24 AM",
-      "user": "worker_test1",
-      "action": "USER_REGISTERED",
-      "details": "Registered new account @worker_test1. Granted ৳5 signup bonus.",
+      "id": "act_1791367456736_6xa6",
+      "timestamp": "10/7/2026, 10:04:16 AM",
+      "user": "newuser_1791367456622",
+      "action": "USER_LOGIN",
+      "details": "Logged into account @newuser_1791367456622",
       "category": "auth"
     },
     {
-      "id": "act_1791365086890_r9j1",
-      "timestamp": "10/7/2026, 9:24:46 AM",
-      "user": "admin",
-      "action": "JOB_APPROVED",
-      "details": "Approved task #1791365079652: \"Test Task\" for marketplace",
-      "category": "admin"
+      "id": "act_1791367456730_l3os",
+      "timestamp": "10/7/2026, 10:04:16 AM",
+      "user": "newuser_1791367456622",
+      "action": "USER_LOGIN",
+      "details": "Logged into account @newuser_1791367456622",
+      "category": "auth"
     },
     {
-      "id": "act_1791365079652_4edi",
-      "timestamp": "10/7/2026, 9:24:39 AM",
+      "id": "act_1791367456725_lbyo",
+      "timestamp": "10/7/2026, 10:04:16 AM",
+      "user": "newuser_1791367456622",
+      "action": "USER_LOGIN",
+      "details": "Logged into account @newuser_1791367456622",
+      "category": "auth"
+    },
+    {
+      "id": "act_1791367456712_63k0",
+      "timestamp": "10/7/2026, 10:04:16 AM",
+      "user": "newuser_1791367456622",
+      "action": "USER_REGISTERED",
+      "details": "Registered new account @newuser_1791367456622. Granted ৳5 signup bonus.",
+      "category": "auth"
+    },
+    {
+      "id": "act_1791366210354_y4uw",
+      "timestamp": "10/7/2026, 9:43:30 AM",
       "user": "abidhasan01",
-      "action": "TASK_POSTED",
-      "details": "Created new task \"Test Task\" (Posting Fee: ৳10)",
-      "category": "task"
+      "action": "TASK_APPROVED",
+      "details": "Approved submission #1791366142838 for Task #1791366089732. Transferred ৳5.00 from @abidhasan01 to @testdada12",
+      "category": "finance"
     },
     {
-      "id": "act_1791365012282_zvs6",
-      "timestamp": "10/7/2026, 9:23:32 AM",
+      "id": "act_1791366102775_l34k",
+      "timestamp": "10/7/2026, 9:41:42 AM",
       "user": "admin",
       "action": "JOB_APPROVED",
-      "details": "Approved task #1: \"Subscribe to YouTube Channel & Watch 1 Min\" for marketplace",
+      "details": "Approved task #1791366089732: \"sign in\" for marketplace",
+      "category": "admin"
+    },
+    {
+      "id": "act_1791365967700_t1lj",
+      "timestamp": "10/7/2026, 9:39:27 AM",
+      "user": "abidhasan01",
+      "action": "TASK_REMOVED",
+      "details": "Task #1791361266439 (\"test\") removed by @abidhasan01. Previous status: Approved. Reason: Deleted by task owner",
       "category": "admin"
     },
     {
@@ -747,51 +663,49 @@
   ],
   "messages": [
     {
-      "id": "msg_appr_job_1791365479193",
-      "from": "system",
-      "to": "worker_test2",
-      "jobId": 199999999,
-      "jobTitle": "Test Admin Publish & Delete Feature",
-      "text": "🎉 Good news! Your task \"Test Admin Publish & Delete Feature\" has been approved and published to the marketplace.",
-      "timestamp": "09:31 AM",
-      "isRead": false
+      "id": "msg_wd_appr_1791366332041",
+      "from": "admin",
+      "to": "testdada12",
+      "text": "Your withdrawal request has been paid successfully. (৳50.00 sent to bKash: 012190-95906)",
+      "timestamp": "03:45 PM",
+      "isRead": true
     },
     {
-      "id": "msg_appr_job_1791365268177",
-      "from": "system",
-      "to": "worker_test2",
-      "jobId": 1791365268170,
-      "jobTitle": "Test Facebook Like",
-      "text": "🎉 Good news! Your task \"Test Facebook Like\" has been approved and published to the marketplace.",
-      "timestamp": "09:27 AM",
-      "isRead": false
+      "id": "msg_dep_appr_1791366296288",
+      "from": "admin",
+      "to": "testdada12",
+      "text": "Your ৳50.00 deposit has been approved and added to your wallet. (bKash, TrxID: 4WTV T B5E)",
+      "timestamp": "03:44 PM",
+      "isRead": true
     },
     {
-      "id": "msg_dep_1791365268164",
+      "id": "msg_appr_1791366210354",
       "from": "system",
-      "to": "worker_test2",
-      "text": "✅ Deposit verified! ৳50 added to your wallet balance (TrxID: TRXTEST999_1791365268152).",
-      "timestamp": "09:27 AM",
-      "isRead": false
+      "to": "testdada12",
+      "jobId": 1791366089732,
+      "jobTitle": "sign in",
+      "text": "🎉 Your task has been approved! ৳5.00 has been credited to your wallet for task \"sign in\". (Task #TASK-1791366089732)",
+      "timestamp": "09:43 AM",
+      "isRead": true
     },
     {
-      "id": "msg_appr_job_1791365086889",
+      "id": "msg_sub_1791366142838",
       "from": "system",
       "to": "abidhasan01",
-      "jobId": 1791365079652,
-      "jobTitle": "Test Task",
-      "text": "🎉 Good news! Your task \"Test Task\" has been approved and published to the marketplace.",
-      "timestamp": "09:24 AM",
+      "jobId": 1791366089732,
+      "jobTitle": "sign in",
+      "text": "📥 New task submission from @testdada12 for task: \"sign in\". Please inspect proof in your Dashboard > My Posted Tasks.",
+      "timestamp": "03:42 PM",
       "isRead": false
     },
     {
-      "id": "msg_appr_job_1791365012282",
+      "id": "msg_appr_job_1791366102774",
       "from": "system",
-      "to": "admin",
-      "jobId": 1,
-      "jobTitle": "Subscribe to YouTube Channel & Watch 1 Min",
-      "text": "🎉 Good news! Your task \"Subscribe to YouTube Channel & Watch 1 Min\" has been approved and published to the marketplace.",
-      "timestamp": "09:23 AM",
+      "to": "abidhasan01",
+      "jobId": 1791366089732,
+      "jobTitle": "sign in",
+      "text": "🎉 Good news! Your task \"sign in\" has been approved and published to the marketplace.",
+      "timestamp": "09:41 AM",
       "isRead": false
     },
     {
@@ -923,17 +837,17 @@
   "maintenanceMode": false,
   "maintenanceMessage": "Website is undergoing scheduled maintenance. We will be back shortly!",
   "user": {
-    "username": "abidhasan01",
-    "password": "abid7787",
-    "name": "Abid",
-    "email": "abidhasan344556@gmail.com",
-    "bio": "Ready to work on verified microjobs!",
-    "profilePhoto": "https://api.dicebear.com/7.x/avataaars/svg?seed=digitalagent",
-    "balance": 30,
-    "earnings": 5,
-    "refCode": "W6T7-ABIDHASAN01",
-    "isAdmin": false,
-    "joinedAt": "2026-10-06",
+    "username": "admin",
+    "password": "work6t7admin87358#45#$6@",
+    "name": "Work 6T7 Admin",
+    "email": "admin@work6t7.bd",
+    "bio": "Platform Administrator & Quality Assurance",
+    "profilePhoto": "https://api.dicebear.com/7.x/bottts/svg?seed=cyberbd",
+    "balance": 50,
+    "earnings": 0,
+    "refCode": "W6T7-ADMIN",
+    "isAdmin": true,
+    "joinedAt": "2026-01-01",
     "phone": "",
     "isBanned": false
   }
