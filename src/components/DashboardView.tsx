@@ -58,7 +58,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     u => u.referredBy && u.referredBy.toUpperCase() === currentUser.refCode.toUpperCase()
   );
 
-  const referralLink = `${window.location.origin}/?ref=${currentUser.refCode}`;
+  const baseUrl = typeof window !== 'undefined' 
+    ? `${window.location.origin}${window.location.pathname}`.replace(/\/$/, '')
+    : '';
+  const referralLink = `${baseUrl}/?ref=${currentUser.refCode}`;
 
   const handleCopyRefCode = () => {
     navigator.clipboard.writeText(currentUser.refCode);
