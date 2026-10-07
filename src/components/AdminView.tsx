@@ -202,6 +202,78 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </div>
       </div>
 
+      {/* Quick Overview Pending Requests Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <button
+          type="button"
+          onClick={() => setActiveTab('jobs')}
+          className={`p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between ${
+            activeTab === 'jobs'
+              ? 'bg-amber-500/15 border-amber-400 shadow-md ring-2 ring-amber-300'
+              : 'bg-white border-amber-200/80 hover:border-amber-400 hover:shadow-xs'
+          }`}
+        >
+          <div>
+            <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider block">
+              💼 Pending Job Requests
+            </span>
+            <span className="text-2xl sm:text-3xl font-black text-amber-950 font-mono mt-0.5 block">
+              {pendingJobs.length}
+            </span>
+            <span className="text-[11px] text-amber-700">Waiting for review & approval</span>
+          </div>
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-400 to-amber-500 text-slate-950 font-bold flex items-center justify-center text-lg shadow-xs">
+            💼
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('deposits')}
+          className={`p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between ${
+            activeTab === 'deposits'
+              ? 'bg-emerald-500/15 border-emerald-500 shadow-md ring-2 ring-emerald-300'
+              : 'bg-white border-emerald-200/80 hover:border-emerald-400 hover:shadow-xs'
+          }`}
+        >
+          <div>
+            <span className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider block">
+              💰 Pending Deposit Requests
+            </span>
+            <span className="text-2xl sm:text-3xl font-black text-emerald-950 font-mono mt-0.5 block">
+              {pendingDeposits.length}
+            </span>
+            <span className="text-[11px] text-emerald-700">TrxID verification required</span>
+          </div>
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white font-bold flex items-center justify-center text-lg shadow-xs">
+            💰
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('withdrawals')}
+          className={`p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between ${
+            activeTab === 'withdrawals'
+              ? 'bg-indigo-500/15 border-indigo-500 shadow-md ring-2 ring-indigo-300'
+              : 'bg-white border-indigo-200/80 hover:border-indigo-400 hover:shadow-xs'
+          }`}
+        >
+          <div>
+            <span className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider block">
+              💸 Pending Withdrawal Requests
+            </span>
+            <span className="text-2xl sm:text-3xl font-black text-indigo-950 font-mono mt-0.5 block">
+              {pendingWithdrawals.length}
+            </span>
+            <span className="text-[11px] text-indigo-700">Payout to bKash / Nagad needed</span>
+          </div>
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 text-white font-bold flex items-center justify-center text-lg shadow-xs">
+            💸
+          </div>
+        </button>
+      </div>
+
       {/* 1. JOB APPROVAL REQUESTS & ALL POSTS MANAGEMENT */}
       {activeTab === 'jobs' && (
         <div className="space-y-8">
@@ -444,17 +516,41 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           <div>
                             <div className="flex items-center gap-2 mb-0.5">
                               <span className="font-bold text-slate-900 text-base">
-                                {targetUser?.name || d.user}
+                                {targetUser?.name || d.userName || d.user}
                               </span>
                               <span className="text-xs font-mono text-slate-500">@{d.user}</span>
                               <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md">
                                 {d.method} Deposit
                               </span>
+                              <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
+                                Req #{d.id}
+                              </span>
                             </div>
-                            <div className="text-xs text-slate-400 flex items-center gap-2">
-                              <span>তারিখ: {d.date}</span>
+                            <div className="text-xs text-slate-500 flex flex-wrap items-center gap-2 mt-1">
+                              <span>User ID: <b className="font-mono text-slate-700">{targetUser?.id || d.user}</b></span>
                               <span>·</span>
-                              <span>বর্তমান ব্যালেন্স: <b>৳{targetUser?.balance.toFixed(2) ?? '0.00'}</b></span>
+                              <span>তারিখ ও সময়: <b>{d.date} {d.time || ''}</b></span>
+                              <span>·</span>
+                              <span>বর্তমান ব্যালেন্স: <b className="text-emerald-700 font-mono">৳{targetUser?.balance.toFixed(2) ?? '0.00'}</b></span>
+                            </div>
+                            {/* Sender Phone & Screenshot Proof */}
+                            <div className="mt-2 text-xs flex flex-wrap items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                              <div>
+                                <span className="text-slate-400 font-medium">প্রেরক নম্বর (Sender No): </span>
+                                <span className="font-mono font-bold text-slate-900">{d.senderNumber || 'Not provided'}</span>
+                              </div>
+                              {d.screenshot && (
+                                <div className="border-l border-slate-200 pl-3">
+                                  <span className="text-slate-400 font-medium">স্ক্রিনশট / রেফারেন্স: </span>
+                                  <span className="font-mono text-indigo-600 font-semibold">{d.screenshot}</span>
+                                </div>
+                              )}
+                              <div className="border-l border-slate-200 pl-3">
+                                <span className="text-slate-400 font-medium">স্ট্যাটাস: </span>
+                                <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold">
+                                  {d.status}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -669,17 +765,39 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           <div>
                             <div className="flex items-center gap-2 mb-0.5">
                               <span className="font-bold text-slate-900 text-base">
-                                {targetUser?.name || w.user}
+                                {targetUser?.name || w.userName || w.user}
                               </span>
                               <span className="text-xs font-mono text-slate-500">@{w.user}</span>
                               <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-md">
                                 {w.method} Payout
                               </span>
+                              <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
+                                Req #{w.id}
+                              </span>
                             </div>
-                            <div className="text-xs text-slate-400 flex items-center gap-2">
-                              <span>তারিখ: {w.date}</span>
+                            <div className="text-xs text-slate-500 flex flex-wrap items-center gap-2 mt-1">
+                              <span>User ID: <b className="font-mono text-slate-700">{targetUser?.id || w.user}</b></span>
                               <span>·</span>
-                              <span>মেইন ব্যালেন্স: <b>৳{targetUser?.balance.toFixed(2) ?? '0.00'}</b></span>
+                              <span>তারিখ ও সময়: <b>{w.date} {w.time || ''}</b></span>
+                              <span>·</span>
+                              <span>মেইন ব্যালেন্স: <b className="text-emerald-700 font-mono">৳{targetUser?.balance.toFixed(2) ?? '0.00'}</b></span>
+                            </div>
+                            {/* Account and Status bar */}
+                            <div className="mt-2 text-xs flex flex-wrap items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                              <div>
+                                <span className="text-slate-400 font-medium">উইথড্র অ্যাকাউন্ট: </span>
+                                <span className="font-mono font-bold text-slate-900">{w.acc}</span>
+                              </div>
+                              <div className="border-l border-slate-200 pl-3">
+                                <span className="text-slate-400 font-medium">পদ্ধতি: </span>
+                                <span className="font-bold text-indigo-700">{w.method} (Personal)</span>
+                              </div>
+                              <div className="border-l border-slate-200 pl-3">
+                                <span className="text-slate-400 font-medium">স্ট্যাটাস: </span>
+                                <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold">
+                                  {w.status}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
