@@ -22,18 +22,92 @@ if (!fs.existsSync(DATA_DIR)) {
 // In-memory cache synced with disk
 let serverState: any = null;
 
+function getDefaultServerState() {
+  return {
+    allUsers: [
+      {
+        username: 'admin',
+        password: 'work6t7admin87358#45#$6@',
+        name: 'Work 6T7 Admin',
+        email: 'admin@work6t7.bd',
+        bio: 'Platform Administrator & Quality Assurance',
+        profilePhoto: 'https://api.dicebear.com/7.x/bottts/svg?seed=admin6t7',
+        balance: 50.0,
+        earnings: 0,
+        refCode: 'W6T7-ADMIN',
+        isAdmin: true,
+        joinedAt: '2026-01-01',
+      },
+    ],
+    jobs: [
+      {
+        id: 1,
+        poster: 'admin',
+        posterName: 'Work 6T7 Official',
+        title: 'Subscribe to YouTube Channel & Watch 1 Min',
+        category: 'YouTube',
+        pay: 5.0,
+        needed: 100,
+        done: 24,
+        spentBudget: 120,
+        inst: '1. Visit YouTube channel @Work6T7Official.\n2. Subscribe and watch the latest video for at least 60 seconds.\n3. Like the video.\n4. Submit your YouTube username and screenshot link as proof.',
+        status: 'Approved',
+        createdAt: '2026-03-10',
+      },
+      {
+        id: 2,
+        poster: 'admin',
+        posterName: 'Work 6T7 Official',
+        title: 'Join Official Discussion Group & Share Feedback',
+        category: 'Social Media',
+        pay: 4.0,
+        needed: 50,
+        done: 11,
+        spentBudget: 44,
+        inst: '1. Search for "Work 6T7 Community" on Facebook/Telegram.\n2. Answer the membership question with your username.\n3. Submit your profile link or screenshot as proof.',
+        status: 'Approved',
+        createdAt: '2026-03-12',
+      },
+    ],
+    applications: [],
+    transactions: [],
+    deposits: [],
+    withdrawals: [],
+    tickets: [],
+    disputes: [],
+    activityLogs: [
+      {
+        id: 'log_init_1',
+        timestamp: new Date().toLocaleString(),
+        user: 'system',
+        action: 'SYSTEM_BOOT',
+        details: 'Secure Financial Engine initialized. Escrow protection active.',
+        category: 'admin',
+      }
+    ],
+    messages: [],
+    depositNumber: '01774922356',
+    maintenanceMode: false,
+    maintenanceMessage: 'Website is undergoing scheduled maintenance. We will be back shortly!',
+  };
+}
+
 function loadState(): any {
   if (serverState) return serverState;
   try {
     if (fs.existsSync(DB_FILE)) {
       const data = fs.readFileSync(DB_FILE, 'utf-8');
       serverState = JSON.parse(data);
-      return serverState;
+      if (serverState && Array.isArray(serverState.allUsers)) {
+        return serverState;
+      }
     }
   } catch (err) {
     console.error('Error loading server DB file:', err);
   }
-  return null;
+  serverState = getDefaultServerState();
+  saveState(serverState);
+  return serverState;
 }
 
 function saveState(state: any) {
@@ -58,11 +132,537 @@ app.get('/api/state', (_req: Request, res: Response) => {
 
 app.post('/api/state/sync', (req: Request, res: Response) => {
   const { state } = req.body;
-  if (state) {
-    saveState(state);
-    return res.json({ success: true, message: 'State synced with server database.' });
+  if (state && Array.isArray(state.allUsers)) {
+    const existingState = loadState();
+    const mergedUsers = state.allUsers.map((u: any) => {
+      const existingUser = existingState.allUsers?.find((eu: any) => eu.username.toLowerCase() === u.username.toLowerCase());
+      return {
+        ...existingUser,
+        ...u,
+        // Preserve valid numeric balance, fallback to existing or initial 5.0
+        balance: typeof u.balance === 'number' && !isNaN(u.balance) ? u.balance : (typeof existingUser?.balance === 'number' ? existingUser.balance : 5.0),
+        earnings: typeof u.earnings === 'number' && !isNaN(u.earnings) ? u.earnings : (typeof existingUser?.earnings === 'number' ? existingUser.earnings : 0.0),
+      };
+    });
+
+    const newState = {
+      ...existingState,
+      ...state,
+      allUsers: mergedUsers,
+    };
+
+    saveState(newState);
+    return res.json({ success: true, message: 'State synced with server database.', state: newState });
   }
-  res.status(400).json({ error: 'Missing state body' });
+  res.status(400).json({ error: 'Missing or invalid state body' });
+});
+
+// USER-SPECIFIC WALLET & FINANCIAL ENDPOINT (Permanent Database Record)
+app.get('/api/user/wallet/:username', (req: Request, res: Response) => {
+  const state = loadState();
+  const username = req.params.username.toLowerCase();
+  const user = state.allUsers?.find((u: any) => u.username.toLowerCase() === username);
+  if (!user) {
+    return res.status(404).json({ error: 'User not found in database' });
+  }
+
+  const userTransactions = (state.transactions || []).filter((t: any) => t.user.toLowerCase() === username);
+  const userDeposits = (state.deposits || []).filter((d: any) => d.user.toLowerCase() === username);
+  const userWithdrawals = (state.withdrawals || []).filter((w: any) => w.user.toLowerCase() === username);
+
+  const pendingDeposits = userDeposits.filter((d: any) => d.status === 'Pending');
+  const pendingDepositTotal = pendingDeposits.reduce((sum: number, d: any) => sum + (d.amount || 0), 0);
+
+  const pendingWithdrawals = userWithdrawals.filter((w: any) => w.status === 'Pending' || w.status === 'Processing');
+  const pendingWithdrawalTotal = pendingWithdrawals.reduce((sum: number, w: any) => sum + (w.amount || 0), 0);
+
+  const totalWithdrawn = userWithdrawals
+    .filter((w: any) => w.status === 'Paid')
+    .reduce((sum: number, w: any) => sum + (w.amount || 0), 0);
+
+  const totalSpent = userTransactions
+    .filter((t: any) => (t.type === 'Task Payment' || t.type === 'Task Posting Fee' || t.type === 'Escrow Hold') && t.status === 'Success')
+    .reduce((sum: number, t: any) => sum + Math.abs(t.amount || 0), 0);
+
+  res.json({
+    success: true,
+    user: {
+      username: user.username,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      bio: user.bio,
+      profilePhoto: user.profilePhoto,
+      balance: user.balance,
+      earnings: user.earnings || 0,
+      refCode: user.refCode,
+      isAdmin: !!user.isAdmin,
+      isBanned: !!user.isBanned,
+      joinedAt: user.joinedAt,
+      referredBy: user.referredBy,
+    },
+    wallet: {
+      availableBalance: user.balance,
+      pendingBalance: pendingDepositTotal,
+      pendingWithdrawal: pendingWithdrawalTotal,
+      totalEarned: user.earnings || 0,
+      totalSpent,
+      totalWithdrawn,
+      transactions: userTransactions,
+      deposits: userDeposits,
+      withdrawals: userWithdrawals,
+    }
+  });
+});
+
+// AUTH LOGIN (Authoritative Verification & Returns Permanent Wallet Balance)
+app.post('/api/auth/login', (req: Request, res: Response) => {
+  const { identifier, password } = req.body;
+  const state = loadState();
+  const cleanId = (identifier || '').trim().toLowerCase();
+  const cleanPass = (password || '').trim();
+
+  const user = state.allUsers?.find((u: any) => 
+    (u.username.toLowerCase() === cleanId || (u.email && u.email.toLowerCase() === cleanId)) && u.password === cleanPass
+  );
+
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid username or password' });
+  }
+
+  if (user.isBanned) {
+    return res.status(403).json({ error: 'This account has been suspended by administrator' });
+  }
+
+  recordActivity(state, user.username, 'USER_LOGIN', `Logged into account @${user.username}`, 'auth');
+  saveState(state);
+
+  const userTransactions = (state.transactions || []).filter((t: any) => t.user.toLowerCase() === user.username.toLowerCase());
+  const userDeposits = (state.deposits || []).filter((d: any) => d.user.toLowerCase() === user.username.toLowerCase());
+  const userWithdrawals = (state.withdrawals || []).filter((w: any) => w.user.toLowerCase() === user.username.toLowerCase());
+
+  res.json({
+    success: true,
+    user,
+    wallet: {
+      availableBalance: user.balance,
+      totalEarned: user.earnings || 0,
+      transactions: userTransactions,
+      deposits: userDeposits,
+      withdrawals: userWithdrawals,
+    }
+  });
+});
+
+// AUTH REGISTER (Creates User with ৳5 Bonus in Database & Referral Bonus)
+app.post('/api/auth/register', (req: Request, res: Response) => {
+  const { username, password, name, email, refCode } = req.body;
+  const state = loadState();
+
+  const cleanUsername = (username || '').trim().toLowerCase();
+  const cleanPassword = (password || '').trim();
+  const cleanName = (name || '').trim();
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanRef = (refCode || '').trim().toUpperCase();
+
+  if (!cleanUsername || cleanUsername.length < 3) {
+    return res.status(400).json({ error: 'Username must be at least 3 characters' });
+  }
+  if (!cleanPassword || cleanPassword.length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  }
+
+  const userExists = state.allUsers?.some((u: any) => u.username.toLowerCase() === cleanUsername);
+  if (userExists) {
+    return res.status(400).json({ error: 'Username is already taken' });
+  }
+
+  if (cleanEmail) {
+    const emailExists = state.allUsers?.some((u: any) => u.email && u.email.toLowerCase() === cleanEmail);
+    if (emailExists) {
+      return res.status(400).json({ error: 'An account with this email already exists' });
+    }
+  }
+
+  const generatedRefCode = `W6T7-${cleanUsername.toUpperCase()}`;
+  const newUser = {
+    username: cleanUsername,
+    password: cleanPassword,
+    name: cleanName || cleanUsername,
+    email: cleanEmail || `${cleanUsername}@mail.bd`,
+    bio: 'Ready to work on verified microjobs!',
+    profilePhoto: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanUsername}`,
+    balance: 5.0, // Initial ৳5 Signup Bonus
+    earnings: 0.0,
+    refCode: generatedRefCode,
+    isAdmin: false,
+    joinedAt: new Date().toISOString().split('T')[0],
+    referredBy: undefined as string | undefined,
+  };
+
+  const newTransactions: any[] = [
+    {
+      id: `tx_${Date.now()}_bonus`,
+      user: cleanUsername,
+      type: 'Signup Bonus',
+      amount: 5.0,
+      direction: 'in',
+      status: 'Success',
+      date: new Date().toLocaleDateString(),
+      details: 'One-time registration bonus added to wallet',
+    }
+  ];
+
+  let updatedReferrer: any = null;
+  if (cleanRef && cleanRef !== generatedRefCode) {
+    const referrer = state.allUsers?.find((u: any) => u.refCode.toUpperCase() === cleanRef);
+    if (referrer) {
+      referrer.balance = (referrer.balance || 0) + 5.0;
+      referrer.earnings = (referrer.earnings || 0) + 5.0;
+      newUser.referredBy = cleanRef;
+      updatedReferrer = referrer;
+
+      newTransactions.push({
+        id: `tx_${Date.now()}_ref`,
+        user: referrer.username,
+        type: 'Referral Bonus',
+        amount: 5.0,
+        direction: 'in',
+        status: 'Success',
+        date: new Date().toLocaleDateString(),
+        details: `Referral reward for inviting @${cleanUsername}`,
+      });
+    }
+  }
+
+  if (!state.allUsers) state.allUsers = [];
+  state.allUsers.push(newUser);
+
+  if (!state.transactions) state.transactions = [];
+  state.transactions.unshift(...newTransactions);
+
+  recordActivity(state, cleanUsername, 'USER_REGISTERED', `Registered new account @${cleanUsername}. Granted ৳5 signup bonus.`, 'auth');
+  saveState(state);
+
+  res.json({
+    success: true,
+    user: newUser,
+    transactions: newTransactions,
+    referrer: updatedReferrer,
+  });
+});
+
+// ATOMIC WALLET DEPOSIT REQUEST
+app.post('/api/wallet/deposit', (req: Request, res: Response) => {
+  const { username, amount, trxId, method, senderNumber, screenshot } = req.body;
+  const state = loadState();
+
+  const amt = Number(amount);
+  if (isNaN(amt) || amt < 50) {
+    return res.status(400).json({ error: 'Minimum deposit is ৳50' });
+  }
+
+  const cleanTrx = (trxId || '').trim().toUpperCase();
+  if (!cleanTrx) {
+    return res.status(400).json({ error: 'Transaction ID (TrxID) is required' });
+  }
+
+  // Prevent duplicate TrxID in database
+  const isDuplicate = state.deposits?.some((d: any) => d.trxId.trim().toUpperCase() === cleanTrx);
+  if (isDuplicate) {
+    return res.status(400).json({ error: 'This Transaction ID has already been submitted' });
+  }
+
+  const user = state.allUsers?.find((u: any) => u.username.toLowerCase() === (username || '').toLowerCase());
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const depId = Date.now();
+  const dateStr = new Date().toLocaleDateString();
+  const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const newDeposit = {
+    id: depId,
+    user: user.username,
+    userName: user.name,
+    amount: amt,
+    trxId: cleanTrx,
+    senderNumber: (senderNumber || '').trim(),
+    screenshot: (screenshot || '').trim(),
+    method: method || 'bKash',
+    status: 'Pending',
+    date: dateStr,
+    time: timeStr,
+  };
+
+  const newTx = {
+    id: `tx_dep_${depId}`,
+    user: user.username,
+    type: 'Deposit',
+    amount: amt,
+    status: 'Pending',
+    date: dateStr,
+    details: `${method} Deposit Request (TrxID: ${cleanTrx}) - Pending Admin Verification`,
+  };
+
+  if (!state.deposits) state.deposits = [];
+  state.deposits.unshift(newDeposit);
+
+  if (!state.transactions) state.transactions = [];
+  state.transactions.unshift(newTx);
+
+  recordActivity(state, user.username, 'DEPOSIT_REQUEST', `Submitted deposit request ৳${amt} via ${method} (TrxID: ${cleanTrx})`, 'finance');
+  saveState(state);
+
+  res.json({ success: true, deposit: newDeposit, transaction: newTx, state });
+});
+
+// ATOMIC WALLET WITHDRAWAL REQUEST
+app.post('/api/wallet/withdraw', (req: Request, res: Response) => {
+  const { username, amount, method, acc } = req.body;
+  const state = loadState();
+
+  const user = state.allUsers?.find((u: any) => u.username.toLowerCase() === (username || '').toLowerCase());
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (user.isBanned) return res.status(403).json({ error: 'Account is suspended' });
+
+  const withdrawAmount = Number(amount);
+  if (isNaN(withdrawAmount) || withdrawAmount < 50) {
+    return res.status(400).json({ error: 'Minimum withdrawal amount is ৳50.00' });
+  }
+
+  if (user.balance < withdrawAmount) {
+    return res.status(400).json({ error: 'Insufficient wallet balance' });
+  }
+
+  // Deduct balance atomically on server and put into pending
+  user.balance -= withdrawAmount;
+
+  const reqId = Date.now();
+  const dateStr = new Date().toLocaleDateString();
+  const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const newWithdrawal = {
+    id: reqId,
+    user: user.username,
+    userName: user.name,
+    amount: withdrawAmount,
+    method: method || 'bKash',
+    acc: acc || '01XXXXXXXXX',
+    status: 'Pending',
+    date: dateStr,
+    time: timeStr,
+  };
+
+  if (!state.withdrawals) state.withdrawals = [];
+  state.withdrawals.unshift(newWithdrawal);
+
+  const newTx = {
+    id: `tx_${reqId}_wd`,
+    user: user.username,
+    type: 'Withdrawal',
+    amount: -withdrawAmount,
+    direction: 'out',
+    status: 'Pending',
+    date: dateStr,
+    time: timeStr,
+    details: `Withdrawal request to ${method} (${acc}) - Pending Admin Review`,
+  };
+
+  if (!state.transactions) state.transactions = [];
+  state.transactions.unshift(newTx);
+
+  recordActivity(state, user.username, 'WITHDRAW_REQUEST', `Submitted withdrawal request for ৳${withdrawAmount} via ${method}`, 'finance');
+  saveState(state);
+
+  res.json({ success: true, message: 'Withdrawal request submitted for admin review.', withdrawal: newWithdrawal, transaction: newTx, user, state });
+});
+
+// ATOMIC TASK POSTING (Only ৳10 posting fee deducted upon creation; worker reward is deducted upon approval)
+app.post('/api/tasks/post', (req: Request, res: Response) => {
+  const { username, jobData } = req.body;
+  const state = loadState();
+
+  const user = state.allUsers?.find((u: any) => u.username.toLowerCase() === (username || '').toLowerCase());
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const needed = Number(jobData.needed);
+  const pay = Number(jobData.pay);
+  const postingFee = user.isAdmin ? 0 : 10;
+
+  if (user.balance < postingFee && !user.isAdmin) {
+    return res.status(400).json({ error: `Insufficient wallet balance! Task posting fee is ৳${postingFee.toFixed(2)}. Available: ৳${user.balance.toFixed(2)}` });
+  }
+
+  // Deduct only posting fee from user on server
+  if (!user.isAdmin && postingFee > 0) {
+    user.balance = Math.max(0, user.balance - postingFee);
+  }
+
+  const jobId = Date.now();
+  const txDate = new Date().toLocaleDateString();
+  const txTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const newJob = {
+    id: jobId,
+    poster: user.username,
+    posterName: user.name,
+    title: jobData.title,
+    category: jobData.category,
+    pay,
+    needed,
+    done: 0,
+    spentBudget: 0,
+    inst: jobData.inst,
+    requiredProof: jobData.requiredProof || 'Screenshot and user details',
+    deadline: jobData.deadline,
+    deadlineTimestamp: jobData.deadlineTimestamp,
+    imageUrl: jobData.imageUrl,
+    status: user.isAdmin ? 'Active' : 'Pending Approval', // Admin review required for non-admin
+    createdAt: txDate,
+  };
+
+  const newTransactions: any[] = [];
+  if (postingFee > 0) {
+    newTransactions.push({
+      id: `tx_${jobId}_fee`,
+      user: user.username,
+      type: 'Job Posting Fee',
+      amount: -postingFee,
+      direction: 'out',
+      taskId: jobId,
+      status: 'Success',
+      date: txDate,
+      time: txTime,
+      details: `Non-refundable task creation fee (Task #${jobId})`,
+      description: `Task creation fee for "${jobData.title}" (৳10.00)`,
+    });
+  }
+
+  if (!state.jobs) state.jobs = [];
+  state.jobs.unshift(newJob);
+
+  if (!state.transactions) state.transactions = [];
+  state.transactions.unshift(...newTransactions);
+
+  recordActivity(state, user.username, 'TASK_POSTED', `Created new task "${jobData.title}" (Posting Fee: ৳${postingFee})`, 'task');
+  saveState(state);
+
+  res.json({ success: true, job: newJob, transactions: newTransactions, user, state });
+});
+
+// TASK PROOF SUBMISSION (Fraud check: no duplicates, no self-apply)
+app.post('/api/tasks/submit-proof', (req: Request, res: Response) => {
+  const { username, jobId, proof, screenshot, submittedLink } = req.body;
+  const state = loadState();
+
+  const user = state.allUsers?.find((u: any) => u.username.toLowerCase() === (username || '').toLowerCase());
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const job = state.jobs?.find((j: any) => j.id === Number(jobId));
+  if (!job) return res.status(404).json({ error: 'Task not found' });
+
+  if (job.poster.toLowerCase() === user.username.toLowerCase()) {
+    return res.status(400).json({ error: 'You cannot submit work on your own task' });
+  }
+
+  const alreadyApplied = state.applications?.some(
+    (a: any) => a.jobId === Number(jobId) && a.user.toLowerCase() === user.username.toLowerCase()
+  );
+  if (alreadyApplied) {
+    return res.status(400).json({ error: 'You have already submitted proof for this task' });
+  }
+
+  if (job.done >= job.needed) {
+    return res.status(400).json({ error: 'All slots for this task have already been filled' });
+  }
+
+  const subId = Date.now();
+  const currentDate = new Date().toLocaleDateString();
+  const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const newApp = {
+    id: subId,
+    jobId: Number(jobId),
+    title: job.title,
+    user: user.username,
+    workerName: user.name,
+    workerId: user.id || user.username,
+    pay: job.pay,
+    status: 'Pending',
+    proof: proof || '',
+    screenshot: screenshot || '',
+    submittedLink: submittedLink || '',
+    submittedAt: currentDate,
+    submittedTime: currentTime,
+  };
+
+  if (!state.applications) state.applications = [];
+  state.applications.unshift(newApp);
+
+  if (!state.messages) state.messages = [];
+  state.messages.unshift({
+    id: `msg_sub_${Date.now()}`,
+    from: 'system',
+    to: job.poster,
+    jobId: job.id,
+    jobTitle: job.title,
+    text: `📥 New task submission from @${user.username} for task: "${job.title}". Please inspect proof in your Dashboard.`,
+    timestamp: currentTime,
+    isRead: false,
+  });
+
+  recordActivity(state, user.username, 'PROOF_SUBMITTED', `Submitted proof for Task #${job.id}`, 'task');
+  saveState(state);
+
+  res.json({ success: true, application: newApp, state });
+});
+
+// TASK PROOF REJECTION (By Task Owner or Admin)
+app.post('/api/tasks/reject-proof', (req: Request, res: Response) => {
+  const { appId, callerUsername, reason, currentState } = req.body;
+  const state = currentState || loadState();
+  if (!state) return res.status(500).json({ error: 'Database state unavailable' });
+
+  const appItem = state.applications?.find((a: any) => a.id === Number(appId));
+  if (!appItem) return res.status(404).json({ error: 'Submission not found' });
+  if (appItem.status !== 'Pending') {
+    return res.status(400).json({ error: 'Submission is not pending or already resolved' });
+  }
+
+  const job = state.jobs?.find((j: any) => j.id === appItem.jobId);
+  if (!job) return res.status(404).json({ error: 'Task not found' });
+
+  const callerUser = state.allUsers?.find((u: any) => u.username.toLowerCase() === (callerUsername || '').toLowerCase());
+  const isOwner = job.poster.toLowerCase() === (callerUsername || '').toLowerCase();
+  const isAdmin = callerUser?.isAdmin;
+
+  if (!isOwner && !isAdmin) {
+    return res.status(403).json({ error: 'Unauthorized: Only task owner or platform admin can reject submissions' });
+  }
+
+  const rejectionNote = (reason || 'Submission proof was invalid or incomplete').trim();
+  const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  appItem.status = 'Rejected';
+  appItem.rejectionReason = rejectionNote;
+  appItem.reviewedAt = new Date().toLocaleDateString();
+
+  if (!state.messages) state.messages = [];
+  state.messages.unshift({
+    id: `msg_rej_${Date.now()}`,
+    from: 'system',
+    to: appItem.user,
+    jobId: appItem.jobId,
+    jobTitle: job.title,
+    text: `⚠️ Your task submission for "${job.title}" was rejected.\n\nReason: "${rejectionNote}".\nNo payment was deducted or credited.`,
+    timestamp: currentTime,
+    isRead: false,
+  });
+
+  recordActivity(state, callerUsername || 'owner', 'PROOF_REJECTED', `Rejected submission #${appItem.id} for Task #${job.id}: ${rejectionNote}`, 'task');
+  saveState(state);
+
+  res.json({ success: true, message: 'Submission rejected successfully', application: appItem, state });
 });
 
 // Helper to log user activity
@@ -89,7 +689,7 @@ app.post('/api/financial/approve-task', (req: Request, res: Response) => {
   const state = currentState || loadState();
   if (!state) return res.status(500).json({ error: 'Database state unavailable' });
 
-  const appItem = state.applications?.find((a: any) => a.id === appId);
+  const appItem = state.applications?.find((a: any) => a.id === Number(appId));
   if (!appItem) return res.status(404).json({ error: 'Submission not found' });
   if (appItem.status !== 'Pending') {
     return res.status(400).json({ error: 'Submission is not pending or already approved/rejected' });
@@ -110,26 +710,51 @@ app.post('/api/financial/approve-task', (req: Request, res: Response) => {
   const workerUser = state.allUsers?.find((u: any) => u.username.toLowerCase() === appItem.user.toLowerCase());
   if (!workerUser) return res.status(404).json({ error: 'Worker account not found' });
 
-  const payout = Number(appItem.pay);
+  // Fraud check: Task Owner cannot complete their own task and claim reward
+  if (job.poster.toLowerCase() === workerUser.username.toLowerCase()) {
+    return res.status(400).json({ error: 'Fraud protection: Task owner cannot complete their own task and claim reward.' });
+  }
+
+  // Idempotency check: Cannot reward the same submission twice
+  const alreadyRewarded = state.transactions?.some(
+    (t: any) => t.submissionId === appItem.id && t.type === 'Task Reward' && t.status === 'Success'
+  );
+  if (alreadyRewarded) {
+    return res.status(400).json({ error: 'Duplicate payment protection: This submission has already been rewarded.' });
+  }
+
+  // Security: Payout amount strictly authoritative from approved task in database, not client input
+  const payout = Number(job.pay);
+  if (isNaN(payout) || payout <= 0) {
+    return res.status(400).json({ error: 'Invalid task reward amount in database' });
+  }
+
   const employerUser = state.allUsers?.find((u: any) => u.username.toLowerCase() === job.poster.toLowerCase());
 
   // Balance validation for employer (if not admin)
   if (employerUser && !employerUser.isAdmin && employerUser.balance < payout) {
     return res.status(400).json({
-      error: `Insufficient balance! Task owner requires at least ৳${payout.toFixed(2)} to approve this task.`,
+      error: `Insufficient balance! Task owner requires at least ৳${payout.toFixed(2)} in wallet to approve this task.`,
     });
   }
 
-  // ATOMIC TRANSFER
+  // ATOMIC SERVER-SIDE TRANSFER: Owner -Reward -> Worker +Reward
   if (employerUser && !employerUser.isAdmin) {
     employerUser.balance = Math.max(0, employerUser.balance - payout);
   }
   workerUser.balance = (workerUser.balance || 0) + payout;
   workerUser.earnings = (workerUser.earnings || 0) + payout;
 
-  // Update submission status
+  // Metadata mapping for verified IDs
   appItem.status = 'Approved';
   appItem.reviewedAt = new Date().toLocaleDateString();
+  appItem.rewardAmount = payout;
+  appItem.pay = payout;
+  appItem.workerId = workerUser.id || workerUser.username;
+  appItem.workerName = workerUser.name;
+  appItem.taskOwnerId = employerUser?.id || job.poster;
+  appItem.taskId = job.id;
+  appItem.taskTitle = job.title;
 
   // Decrement available slots (increment done)
   job.done = Math.min(job.needed, (job.done || 0) + 1);
@@ -140,6 +765,7 @@ app.post('/api/financial/approve-task', (req: Request, res: Response) => {
 
   const txDate = new Date().toLocaleDateString();
   const txTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const idempotencyKey = `appr_${job.id}_${appItem.id}_${Date.now()}`;
 
   // Record 2 Transactions atomically
   if (!state.transactions) state.transactions = [];
@@ -151,20 +777,22 @@ app.post('/api/financial/approve-task', (req: Request, res: Response) => {
     direction: 'out',
     taskId: job.id,
     submissionId: appItem.id,
+    idempotencyKey,
     status: 'Success',
     date: txDate,
     time: txTime,
-    details: `Task Payment to @${appItem.user} for "${job.title}" (Task #TASK-${job.id})`,
+    details: `Task Payment to @${workerUser.username} for "${job.title}" (Task #TASK-${job.id})`,
   });
 
   state.transactions.unshift({
     id: `tx_${Date.now() + 1}_task_reward`,
-    user: appItem.user,
+    user: workerUser.username,
     type: 'Task Reward',
     amount: payout,
     direction: 'in',
     taskId: job.id,
     submissionId: appItem.id,
+    idempotencyKey: `${idempotencyKey}_reward`,
     status: 'Success',
     date: txDate,
     time: txTime,
@@ -176,7 +804,7 @@ app.post('/api/financial/approve-task', (req: Request, res: Response) => {
   state.messages.unshift({
     id: `msg_appr_${Date.now()}`,
     from: 'system',
-    to: appItem.user,
+    to: workerUser.username,
     jobId: job.id,
     jobTitle: job.title,
     text: `🎉 Your task has been approved! ৳${payout.toFixed(2)} has been credited to your wallet for task "${job.title}". (Task #TASK-${job.id})`,
@@ -184,15 +812,241 @@ app.post('/api/financial/approve-task', (req: Request, res: Response) => {
     isRead: false,
   });
 
-  recordActivity(state, callerUsername, 'TASK_APPROVED', `Approved submission #${appItem.id} for Task #${job.id}. Transferred ৳${payout.toFixed(2)} to @${appItem.user}`, 'finance');
+  recordActivity(state, callerUsername, 'TASK_APPROVED', `Approved submission #${appItem.id} for Task #${job.id}. Transferred ৳${payout.toFixed(2)} from @${job.poster} to @${workerUser.username}`, 'finance');
 
   saveState(state);
   res.json({
     success: true,
-    message: `Task approved! ৳${payout.toFixed(2)} transferred to @${appItem.user}`,
+    message: `Task approved! ৳${payout.toFixed(2)} credited to @${workerUser.username}'s wallet.`,
     state,
     payout,
+    ownerBalance: employerUser ? employerUser.balance : undefined,
+    workerBalance: workerUser.balance,
   });
+});
+
+// ADMIN & CREATOR TASK REMOVE / SOFT DELETE ENDPOINT (Permanent Database Record)
+app.post('/api/jobs/remove', (req: Request, res: Response) => {
+  const { jobId, callerUsername, reason, currentState } = req.body;
+  const state = currentState || loadState();
+  if (!state || !state.jobs) return res.status(500).json({ error: 'Database unavailable' });
+
+  const job = state.jobs.find((j: any) => j.id === Number(jobId));
+  if (!job) return res.status(404).json({ error: 'Task not found' });
+
+  const callerUser = state.allUsers?.find((u: any) => u.username.toLowerCase() === (callerUsername || '').toLowerCase());
+  const isOwner = job.poster.toLowerCase() === (callerUsername || '').toLowerCase();
+  const isAdmin = !!callerUser?.isAdmin || (callerUsername || '').toLowerCase() === 'admin';
+
+  if (!isAdmin && !isOwner) {
+    return res.status(403).json({ error: 'Unauthorized: Only platform admin or the job creator can remove this task' });
+  }
+
+  // Idempotent: If already removed, return success
+  if (job.isDeleted || job.status === 'Removed' || job.status === 'Deleted') {
+    return res.json({ success: true, message: 'Task is already removed', job, state });
+  }
+
+  const previousStatus = job.status;
+  const deleteTimestamp = new Date().toISOString();
+  const deleteReasonStr = reason || (isAdmin ? 'Removed by administrator' : 'Deleted by task owner');
+
+  // SOFT DELETE: Permanent backend database record
+  job.isDeleted = true;
+  job.status = 'Removed';
+  job.deletedAt = deleteTimestamp;
+  job.deletedBy = callerUsername || (isAdmin ? 'admin' : job.poster);
+  job.deleteReason = deleteReasonStr;
+  job.previousStatus = previousStatus;
+
+  // Safe Handling of Submissions:
+  // Existing Approved submissions and payments are NEVER reversed or deleted!
+  // Pending submissions on this removed task are cancelled
+  if (state.applications) {
+    state.applications.forEach((app: any) => {
+      if (app.jobId === job.id && app.status === 'Pending') {
+        app.status = 'Rejected';
+        app.rejectionReason = `Task was cancelled/removed by ${isAdmin ? 'administrator' : 'creator'}.`;
+
+        if (!state.messages) state.messages = [];
+        state.messages.unshift({
+          id: `msg_canc_${Date.now()}_${app.id}`,
+          from: 'system',
+          to: app.user,
+          jobId: job.id,
+          jobTitle: job.title,
+          text: `⚠️ Notice: Task "${job.title}" (Job #${job.id}) was removed. Your pending submission has been cancelled.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isRead: false,
+        });
+      }
+    });
+  }
+
+  // Safe Handling of Escrow:
+  // Unused escrow slots refunded to owner ONLY IF escrow was actually reserved/held on task creation
+  const remainingSlots = Math.max(0, job.needed - job.done);
+  const unusedEscrow = remainingSlots * job.pay;
+  const owner = state.allUsers?.find((u: any) => u.username.toLowerCase() === job.poster.toLowerCase());
+  const hadEscrowHold = (state.transactions || []).some(
+    (t: any) => t.taskId === job.id && t.type === 'Escrow Hold' && t.user.toLowerCase() === job.poster.toLowerCase()
+  );
+
+  if (owner && hadEscrowHold && unusedEscrow > 0 && previousStatus !== 'Completed') {
+    owner.balance += unusedEscrow;
+
+    if (!state.transactions) state.transactions = [];
+    state.transactions.unshift({
+      id: `tx_${Date.now()}_rm_escrow`,
+      user: job.poster,
+      type: 'Escrow Refund',
+      amount: unusedEscrow,
+      direction: 'in',
+      taskId: job.id,
+      status: 'Success',
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      details: `Escrow refund for removed task #${job.id} (${remainingSlots} slots * ৳${job.pay})`,
+    });
+  }
+
+  // Audit Logging
+  recordActivity(
+    state,
+    callerUsername || 'admin',
+    'TASK_REMOVED',
+    `Task #${job.id} ("${job.title}") removed by @${callerUsername}. Previous status: ${previousStatus}. Reason: ${deleteReasonStr}`,
+    'admin'
+  );
+
+  saveState(state);
+
+  res.json({
+    success: true,
+    message: `Task #${job.id} permanently removed. Database updated.`,
+    job,
+    state,
+    unusedEscrowRefunded: unusedEscrow,
+  });
+});
+
+// ADMIN JOB APPROVAL & REJECTION ENDPOINT
+app.post('/api/jobs/manage-approval', (req: Request, res: Response) => {
+  const { jobId, action, reason, callerUsername, currentState } = req.body;
+  const state = currentState || loadState();
+  if (!state || !state.jobs) return res.status(500).json({ error: 'Database unavailable' });
+
+  const job = state.jobs.find((j: any) => j.id === Number(jobId));
+  if (!job) return res.status(404).json({ error: 'Task not found' });
+
+  if (action === 'approve') {
+    job.status = 'Approved';
+    job.approvedAt = new Date().toISOString();
+    job.approvedBy = callerUsername || 'admin';
+
+    if (!state.messages) state.messages = [];
+    state.messages.unshift({
+      id: `msg_appr_job_${Date.now()}`,
+      from: 'system',
+      to: job.poster,
+      jobId: job.id,
+      jobTitle: job.title,
+      text: `🎉 Good news! Your task "${job.title}" has been approved and published to the marketplace.`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isRead: false,
+    });
+
+    recordActivity(state, callerUsername || 'admin', 'JOB_APPROVED', `Approved task #${job.id}: "${job.title}" for marketplace`, 'admin');
+  } else if (action === 'reject') {
+    job.status = 'Rejected';
+    job.rejectionReason = reason || 'Task instructions do not meet community standards';
+
+    const hadEscrowHold = (state.transactions || []).some(
+      (t: any) => t.taskId === job.id && t.type === 'Escrow Hold' && t.user.toLowerCase() === job.poster.toLowerCase()
+    );
+    const escrowRefund = job.pay * job.needed;
+    const owner = state.allUsers?.find((u: any) => u.username.toLowerCase() === job.poster.toLowerCase());
+    if (owner && hadEscrowHold && escrowRefund > 0) {
+      owner.balance += escrowRefund;
+
+      if (!state.transactions) state.transactions = [];
+      state.transactions.unshift({
+        id: `tx_${Date.now()}_rej_escrow`,
+        user: job.poster,
+        type: 'Escrow Refund',
+        amount: escrowRefund,
+        direction: 'in',
+        taskId: job.id,
+        status: 'Success',
+        date: new Date().toLocaleDateString(),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        details: `Worker escrow refund for rejected task #${job.id}`,
+      });
+    }
+
+    if (!state.messages) state.messages = [];
+    state.messages.unshift({
+      id: `msg_rej_job_${Date.now()}`,
+      from: 'system',
+      to: job.poster,
+      jobId: job.id,
+      jobTitle: job.title,
+      text: `⚠️ Your task "${job.title}" was rejected: ${job.rejectionReason}. Escrow budget of ৳${escrowRefund} has been refunded to your wallet.`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isRead: false,
+    });
+
+    recordActivity(state, callerUsername || 'admin', 'JOB_REJECTED', `Rejected task #${job.id}. Reason: ${job.rejectionReason}`, 'admin');
+  }
+
+  saveState(state);
+  res.json({ success: true, message: `Task #${job.id} ${action}ed successfully`, job, state });
+});
+
+// FINANCIAL RECONCILIATION & AUDIT ENDPOINT
+// Formula: Current Balance = Opening Balance + Valid Credits - Valid Debits
+app.get('/api/admin/reconcile-audit', (_req: Request, res: Response) => {
+  const state = loadState();
+  if (!state) return res.status(500).json({ error: 'Database state unavailable' });
+
+  const audits = (state.allUsers || []).map((u: any) => {
+    const userTxs = (state.transactions || []).filter((t: any) => t.user.toLowerCase() === u.username.toLowerCase());
+    
+    // Credits: money into wallet
+    const credits = userTxs
+      .filter((t: any) => 
+        (t.type === 'Task Reward' || t.type === 'Deposit' || t.type === 'Signup Bonus' || t.type === 'Referral Bonus' || t.type === 'Escrow Refund' || (t.type === 'Admin Adjustment' && t.amount > 0)) &&
+        t.status === 'Success'
+      )
+      .reduce((sum: number, t: any) => sum + Math.abs(t.amount || 0), 0);
+
+    // Debits: money out of wallet
+    const debits = userTxs
+      .filter((t: any) => 
+        (t.type === 'Task Payment' || t.type === 'Task Posting Fee' || t.type === 'Job Posting Fee' || t.type === 'Escrow Hold' || t.type === 'Withdrawal' || (t.type === 'Admin Adjustment' && t.amount < 0)) &&
+        (t.status === 'Success' || t.status === 'Pending')
+      )
+      .reduce((sum: number, t: any) => sum + Math.abs(t.amount || 0), 0);
+
+    // Initial base opening (default 5.0 for users or 50.0 for admin)
+    const baseOpening = u.isAdmin ? 50.0 : 0.0;
+    const computedBalance = baseOpening + credits - debits;
+    const discrepancy = Math.abs((u.balance || 0) - computedBalance);
+    const isAbnormal = discrepancy > 5.0; // Flag discrepancy
+
+    return {
+      username: u.username,
+      actualBalance: u.balance,
+      computedBalance,
+      discrepancy,
+      credits,
+      debits,
+      txCount: userTxs.length,
+      isAbnormal,
+    };
+  });
+
+  res.json({ success: true, audits, totalUsers: state.allUsers?.length || 0 });
 });
 
 // 2. ATOMIC TASK CANCEL & UNUSED ESCROW REFUND

@@ -41,9 +41,11 @@ export const JobMarketplace: React.FC<JobMarketplaceProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
-  // CRITICAL REQUIREMENT: Only show Approved / Published jobs in marketplace!
+  // CRITICAL REQUIREMENT: Only show Active / Approved jobs in marketplace, strictly exclude Removed/Deleted
   const approvedJobs = useMemo(() => {
-    return jobs.filter(j => j.status === 'Approved');
+    return jobs.filter(
+      j => (j.status === 'Approved' || j.status === 'Active') && !j.isDeleted
+    );
   }, [jobs]);
 
   const filteredJobs = useMemo(() => {

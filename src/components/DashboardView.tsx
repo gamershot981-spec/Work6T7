@@ -63,9 +63,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     a => a.user.toLowerCase() === currentUser.username.toLowerCase()
   );
 
-  // User's posted tasks
+  // User's posted tasks (excluding removed/deleted)
   const myPostedTasks = jobs.filter(
-    j => j.poster.toLowerCase() === currentUser.username.toLowerCase()
+    j => j.poster.toLowerCase() === currentUser.username.toLowerCase() && !j.isDeleted && j.status !== 'Removed' && j.status !== 'Deleted'
   );
 
   // User's referrals
@@ -386,12 +386,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         {(task.status === 'Active' || task.status === 'Approved') && remainingSlots > 0 && onCancelJob && (
                           <button
                             type="button"
-                            onClick={() => {
-                              if (window.confirm(`Cancel this task and refund ৳${unusedEscrow.toFixed(2)} unused escrow to your available wallet balance?`)) {
-                                onCancelJob(task.id);
-                              }
-                            }}
-                            className="px-3 py-1.5 text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
+                            onClick={() => onCancelJob(task.id)}
+                            className="px-3 py-1.5 text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
                             title="Cancel and refund remaining escrow"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
@@ -421,12 +417,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                         <button
                           type="button"
-                          onClick={() => {
-                            if (window.confirm(`Delete Task #${task.id}: "${task.title}"?`)) {
-                              onDeleteJob(task.id);
-                            }
-                          }}
-                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          onClick={() => onDeleteJob(task.id)}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                           title="Delete Task"
                         >
                           <Trash2 className="w-4 h-4" />

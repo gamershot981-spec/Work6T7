@@ -133,8 +133,28 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [resolvingDisputeId, setResolvingDisputeId] = useState<string | null>(null);
   const [disputeResolveNote, setDisputeResolveNote] = useState('');
 
-  const pendingJobs = jobs.filter(j => j.status === 'Pending Approval');
-  const approvedJobs = jobs.filter(j => j.status === 'Approved');
+  const pendingJobs = useMemo(() => {
+    return jobs.filter(j => j.status === 'Pending Approval' && !j.isDeleted);
+  }, [jobs]);
+
+  const approvedJobs = useMemo(() => {
+    return jobs.filter(j => (j.status === 'Approved' || j.status === 'Active') && !j.isDeleted);
+  }, [jobs]);
+
+  const liveMarketplaceJobs = useMemo(() => {
+    return jobs.filter(j => {
+      if (j.isDeleted || j.status === 'Removed' || j.status === 'Deleted') return false;
+      if (!jobSearch.trim()) return true;
+      const q = jobSearch.toLowerCase();
+      return (
+        j.title.toLowerCase().includes(q) ||
+        j.poster.toLowerCase().includes(q) ||
+        j.category.toLowerCase().includes(q) ||
+        String(j.id).includes(q)
+      );
+    });
+  }, [jobs, jobSearch]);
+
   const pendingDeposits = deposits.filter(d => d.status === 'Pending');
   const pendingWithdrawals = withdrawals.filter(w => w.status === 'Pending');
 
@@ -512,12 +532,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
                       <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                         <button
-                          onClick={() => {
-                            if (window.confirm(`Permanently delete post #${job.id}: "${job.title}"?`)) {
-                              onDeleteJob(job.id);
-                            }
-                          }}
-                          className="px-3.5 py-2 text-rose-600 hover:bg-rose-50 border border-rose-200 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors"
+                          type="button"
+                          onClick={() => onDeleteJob(job.id)}
+                          className="px-3.5 py-2 text-rose-600 hover:bg-rose-50 border border-rose-200 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                          title="Permanently Delete Post"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           Delete Post
@@ -549,10 +567,20 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
           {/* Section B: All Published Marketplace Posts Management */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">All Live Marketplace Posts ({jobs.length})</h3>
+                <h3 className="text-lg font-bold text-slate-900">All Live Marketplace Posts ({liveMarketplaceJobs.length})</h3>
                 <p className="text-xs text-slate-500">Admin can pause, disable, or delete any job post from the marketplace at any time.</p>
+              </div>
+              <div className="relative min-w-[220px]">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  value={jobSearch}
+                  onChange={e => setJobSearch(e.target.value)}
+                  placeholder="Search posts..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-indigo-500"
+                />
               </div>
             </div>
 
@@ -572,7 +600,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {jobs.map(j => (
+                  {liveMarketplaceJobs.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="p-8 text-center text-slate-400">
+                        No active marketplace posts found.
+                      </td>
+                    </tr>
+                  ) : (
+                    liveMarketplaceJobs.map(j => (
                     <tr key={j.id} className="hover:bg-slate-50">
                       <td className="p-3 font-mono text-slate-400">#{j.id}</td>
                       <td className="p-3 font-bold text-slate-800 max-w-xs truncate">{j.title}</td>
@@ -625,20 +660,18 @@ export const AdminView: React.FC<AdminViewProps> = ({
                             </button>
                           )}
                           <button
-                            onClick={() => {
-                              if (window.confirm(`Delete Task #${j.id}: "${j.title}"?`)) {
-                                onDeleteJob(j.id);
-                              }
-                            }}
-                            className="p-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors"
-                            title="Delete Task"
+                            type="button"
+                            onClick={() => onDeleteJob(j.id)}
+                            className="p-1.5 text-rose-600 hover:bg-rose-100 bg-rose-50 border border-rose-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1 font-bold text-xs"
+                            title="Delete Task Permanently"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  ))) }
                 </tbody>
               </table>
             </div>

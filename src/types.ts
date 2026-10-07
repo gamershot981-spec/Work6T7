@@ -18,7 +18,7 @@ export interface User {
   currentSection?: string;
 }
 
-export type JobStatus = 'Draft' | 'Pending Approval' | 'Active' | 'Approved' | 'Paused' | 'Disabled' | 'Completed' | 'Expired' | 'Cancelled' | 'Rejected';
+export type JobStatus = 'Draft' | 'Pending Approval' | 'Active' | 'Approved' | 'Paused' | 'Disabled' | 'Completed' | 'Expired' | 'Cancelled' | 'Rejected' | 'Removed' | 'Deleted';
 
 export interface Job {
   id: number;
@@ -42,15 +42,24 @@ export interface Job {
   createdAt: string;
   approvedAt?: string;
   approvedBy?: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
+  deleteReason?: string;
+  previousStatus?: string;
 }
 
 export interface Application {
   id: number;
   jobId: number;
+  taskId?: number;
   title: string;
+  taskTitle?: string;
   user: string;
   workerName?: string;
   workerId?: string | number;
+  taskOwnerId?: string;
+  rewardAmount?: number;
   pay: number;
   status: 'Pending' | 'Approved' | 'Rejected';
   proof: string;
@@ -60,6 +69,7 @@ export interface Application {
   submittedTime?: string;
   reviewedAt?: string;
   rejectionReason?: string;
+  idempotencyKey?: string;
 }
 
 export type TransactionType = 
@@ -68,6 +78,8 @@ export type TransactionType =
   | 'Task Budget Reserve' 
   | 'Task Budget Refund' 
   | 'Job Posting Fee' 
+  | 'Task Posting Fee'
+  | 'Escrow Hold'
   | 'Deposit' 
   | 'Withdrawal' 
   | 'Referral Bonus' 
@@ -90,6 +102,10 @@ export interface Transaction {
   time?: string;
   details?: string;
   description?: string;
+  isFlagged?: boolean;
+  flagReason?: string;
+  idempotencyKey?: string;
+  adminId?: string;
 }
 
 export interface Message {

@@ -1,0 +1,155 @@
+{
+  "allUsers": [
+    {
+      "username": "admin",
+      "password": "work6t7admin87358#45#$6@",
+      "name": "Work 6T7 Admin",
+      "email": "admin@work6t7.bd",
+      "bio": "Platform Administrator & Quality Assurance",
+      "profilePhoto": "https://api.dicebear.com/7.x/bottts/svg?seed=admin6t7",
+      "balance": 50,
+      "earnings": 0,
+      "refCode": "W6T7-ADMIN",
+      "isAdmin": true,
+      "joinedAt": "2026-01-01"
+    },
+    {
+      "username": "testworker1",
+      "password": "password123",
+      "name": "Test Worker",
+      "email": "test1@mail.bd",
+      "bio": "Ready to work on verified microjobs!",
+      "profilePhoto": "https://api.dicebear.com/7.x/avataaars/svg?seed=testworker1",
+      "balance": 205,
+      "earnings": 0,
+      "refCode": "W6T7-TESTWORKER1",
+      "isAdmin": false,
+      "joinedAt": "2026-10-07"
+    }
+  ],
+  "jobs": [
+    {
+      "id": 1,
+      "poster": "admin",
+      "posterName": "Work 6T7 Official",
+      "title": "Subscribe to YouTube Channel & Watch 1 Min",
+      "category": "YouTube",
+      "pay": 5,
+      "needed": 100,
+      "done": 24,
+      "spentBudget": 120,
+      "inst": "1. Visit YouTube channel @Work6T7Official.\n2. Subscribe and watch the latest video for at least 60 seconds.\n3. Like the video.\n4. Submit your YouTube username and screenshot link as proof.",
+      "status": "Approved",
+      "createdAt": "2026-03-10"
+    },
+    {
+      "id": 2,
+      "poster": "admin",
+      "posterName": "Work 6T7 Official",
+      "title": "Join Official Discussion Group & Share Feedback",
+      "category": "Social Media",
+      "pay": 4,
+      "needed": 50,
+      "done": 11,
+      "spentBudget": 44,
+      "inst": "1. Search for \"Work 6T7 Community\" on Facebook/Telegram.\n2. Answer the membership question with your username.\n3. Submit your profile link or screenshot as proof.",
+      "status": "Approved",
+      "createdAt": "2026-03-12"
+    }
+  ],
+  "applications": [],
+  "transactions": [
+    {
+      "id": "tx_dep_1791360951196",
+      "user": "testworker1",
+      "type": "Deposit",
+      "amount": 200,
+      "status": "Pending",
+      "date": "10/7/2026",
+      "details": "bKash Deposit Request (TrxID: BLX987654321) - Pending Admin Verification"
+    },
+    {
+      "id": "tx_1791360926537_bonus",
+      "user": "testworker1",
+      "type": "Signup Bonus",
+      "amount": 5,
+      "direction": "in",
+      "status": "Success",
+      "date": "10/7/2026",
+      "details": "One-time registration bonus added to wallet"
+    }
+  ],
+  "deposits": [
+    {
+      "id": 1791360951196,
+      "user": "testworker1",
+      "userName": "Test Worker",
+      "amount": 200,
+      "trxId": "BLX987654321",
+      "senderNumber": "01712345678",
+      "screenshot": "",
+      "method": "bKash",
+      "status": "Approved",
+      "date": "10/7/2026",
+      "time": "08:15 AM"
+    }
+  ],
+  "withdrawals": [],
+  "tickets": [],
+  "disputes": [],
+  "activityLogs": [
+    {
+      "id": "act_1791360987849_pkn5",
+      "timestamp": "10/7/2026, 8:16:27 AM",
+      "user": "testworker1",
+      "action": "USER_LOGIN",
+      "details": "Logged into account @testworker1",
+      "category": "auth"
+    },
+    {
+      "id": "act_1791360965682_tiao",
+      "timestamp": "10/7/2026, 8:16:05 AM",
+      "user": "admin",
+      "action": "DEPOSIT_APPROVED",
+      "details": "Approved deposit #1791360951196 (৳200, TrxID: BLX987654321) for @testworker1",
+      "category": "finance"
+    },
+    {
+      "id": "act_1791360951196_h9zc",
+      "timestamp": "10/7/2026, 8:15:51 AM",
+      "user": "testworker1",
+      "action": "DEPOSIT_REQUEST",
+      "details": "Submitted deposit request ৳200 via bKash (TrxID: BLX987654321)",
+      "category": "finance"
+    },
+    {
+      "id": "act_1791360926537_6pky",
+      "timestamp": "10/7/2026, 8:15:26 AM",
+      "user": "testworker1",
+      "action": "USER_REGISTERED",
+      "details": "Registered new account @testworker1. Granted ৳5 signup bonus.",
+      "category": "auth"
+    },
+    {
+      "id": "log_init_1",
+      "timestamp": "10/7/2026, 8:15:26 AM",
+      "user": "system",
+      "action": "SYSTEM_BOOT",
+      "details": "Secure Financial Engine initialized. Escrow protection active.",
+      "category": "admin"
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg_dep_1791360965682",
+      "from": "system",
+      "to": "testworker1",
+      "text": "✅ Deposit verified! ৳200 added to your wallet balance (TrxID: BLX987654321).",
+      "timestamp": "08:16 AM",
+      "isRead": false
+    }
+  ],
+  "depositNumber": "01774922356",
+  "maintenanceMode": false,
+  "maintenanceMessage": "Website is undergoing scheduled maintenance. We will be back shortly!"
+}

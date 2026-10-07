@@ -64,6 +64,72 @@ export default function App() {
     }
   }, []);
 
+  // Hydrate State & Active User Wallet Balance from Server Database on Mount
+  useEffect(() => {
+    let isMounted = true;
+
+    const hydrateFromDatabase = async () => {
+      try {
+        const res = await fetch('/api/state');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.state && Array.isArray(data.state.allUsers) && isMounted) {
+            setState(prev => {
+              const serverUsers: User[] = data.state.allUsers;
+              let currentUser = prev.user;
+
+              if (currentUser) {
+                const freshUser = serverUsers.find(
+                  u => u.username.toLowerCase() === currentUser!.username.toLowerCase()
+                );
+                if (freshUser) {
+                  currentUser = {
+                    ...currentUser,
+                    ...freshUser,
+                    balance: typeof freshUser.balance === 'number' ? freshUser.balance : currentUser.balance,
+                    earnings: typeof freshUser.earnings === 'number' ? freshUser.earnings : currentUser.earnings,
+                  };
+                }
+              }
+
+              // Server database is the single source of truth for users and balances
+              const mergedUsers = serverUsers.map(su => ({
+                ...su,
+                balance: typeof su.balance === 'number' ? su.balance : 5.0,
+                earnings: typeof su.earnings === 'number' ? su.earnings : 0.0,
+              }));
+
+              // Also include any newly registered local users not yet on server
+              prev.allUsers.forEach(lu => {
+                if (!mergedUsers.some(mu => mu.username.toLowerCase() === lu.username.toLowerCase())) {
+                  mergedUsers.push(lu);
+                }
+              });
+
+              // Filter out permanently removed or deleted jobs
+              const activeJobs = (data.state.jobs || []).filter(
+                (j: any) => !j.isDeleted && j.status !== 'Removed' && j.status !== 'Deleted'
+              );
+
+              return {
+                ...data.state,
+                user: currentUser,
+                allUsers: mergedUsers,
+                jobs: activeJobs,
+                transactions: (data.state.transactions && data.state.transactions.length > 0) ? data.state.transactions : prev.transactions,
+              };
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Database server connection notice:', err);
+      }
+    };
+
+    hydrateFromDatabase();
+    return () => { isMounted = false; };
+  }, []);
+
   // Periodic Auto-Expire & Escrow Refund for Tasks past Deadline
   useEffect(() => {
     const checkTaskDeadlines = () => {
@@ -141,9 +207,15 @@ export default function App() {
     }, 3500);
   }, []);
 
-  // Sync to localStorage whenever state changes
+  // Sync to localStorage and persist to server database whenever state changes
   useEffect(() => {
     saveState(state);
+    // Background sync to server database
+    fetch('/api/state/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state }),
+    }).catch(() => {});
   }, [state]);
 
   // Unread messages count for currentUser
@@ -169,13 +241,45 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Auth Handlers
-  const handleLoginSuccess = (user: User) => {
-    setState(prev => ({
-      ...prev,
-      user,
-    }));
-    if (user.isAdmin) {
+  // Auth Handlers with Authoritative Database Wallet Hydration
+  const handleLoginSuccess = async (loggedInUser: User) => {
+    let freshUser = { ...loggedInUser };
+
+    // Fetch authoritative wallet balance and records from permanent database
+    try {
+      const res = await fetch(`/api/user/wallet/${encodeURIComponent(loggedInUser.username)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          freshUser = {
+            ...freshUser,
+            ...data.user,
+            balance: typeof data.user.balance === 'number' ? data.user.balance : freshUser.balance,
+            earnings: typeof data.user.earnings === 'number' ? data.user.earnings : freshUser.earnings,
+          };
+        }
+      }
+    } catch {
+      // offline fallback
+    }
+
+    setState(prev => {
+      // Ensure the user's permanent wallet in allUsers is never overwritten or reset to 0
+      const nextUsers = prev.allUsers.map(u =>
+        u.username.toLowerCase() === freshUser.username.toLowerCase() ? freshUser : u
+      );
+      if (!nextUsers.some(u => u.username.toLowerCase() === freshUser.username.toLowerCase())) {
+        nextUsers.push(freshUser);
+      }
+
+      return {
+        ...prev,
+        user: freshUser,
+        allUsers: nextUsers,
+      };
+    });
+
+    if (freshUser.isAdmin) {
       setCurrentView('admin');
     }
   };
@@ -201,9 +305,15 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    setState(prev => ({ ...prev, user: null }));
+    // CRITICAL: Logout ≠ Wallet Reset.
+    // Logging out ONLY ends authentication session (user: null).
+    // The user's document in allUsers, their wallet balance, earnings, and transactions remain 100% permanently preserved in database!
+    setState(prev => ({
+      ...prev,
+      user: null, // Clear session only
+    }));
     setCurrentView('home');
-    showToast('Logged out successfully.', 'info');
+    showToast('Logged out successfully. Your wallet balance is securely saved.', 'info');
   };
 
   // Profile Update Handler
@@ -240,6 +350,13 @@ export default function App() {
       jobs: [newJob, ...prev.jobs],
       transactions: [...newTransactions, ...prev.transactions],
     }));
+
+    // Persist to server database atomically
+    fetch('/api/tasks/post', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: state.user.username, jobData: newJob }),
+    }).catch(() => {});
   };
 
   // Submit Proof for Job Handler
@@ -312,11 +429,24 @@ export default function App() {
       messages: [newOwnerNotification, ...prev.messages],
     }));
 
+    // Persist to server database
+    fetch('/api/tasks/submit-proof', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: state.user.username,
+        jobId,
+        proof,
+        screenshot,
+        submittedLink,
+      }),
+    }).catch(() => {});
+
     showToast(`Task proof submitted! Employer @${job.poster} will review your submission.`, 'success');
   };
 
   // Employer Approves Worker Application (Atomic Transfer: User A -৳Reward -> User B +৳Reward)
-  const handleApproveApplication = (appId: number) => {
+  const handleApproveApplication = async (appId: number) => {
     const app = state.applications.find(a => a.id === appId);
     if (!app || app.status !== 'Pending') {
       showToast('This submission is not pending or has already been approved.', 'info');
@@ -329,7 +459,7 @@ export default function App() {
     // Permission validation: Only Task Owner or Admin can approve
     const isOwner = state.user?.username.toLowerCase() === job.poster.toLowerCase() || state.user?.isAdmin;
     if (!isOwner) {
-      showToast('Only the task owner can approve this submission.', 'error');
+      showToast('Only the task owner or admin can approve this submission.', 'error');
       return;
     }
 
@@ -344,7 +474,7 @@ export default function App() {
 
     const payout = app.pay;
 
-    // BALANCE CHECK: User A must have sufficient funds (unless Admin)
+    // BALANCE CHECK: Task Owner must have sufficient funds (unless Admin)
     if (employerUser && !employerUser.isAdmin && employerUser.balance < payout) {
       showToast(
         `Insufficient wallet balance! Task owner @${job.poster} needs at least ৳${payout.toFixed(2)} to approve this worker. Please deposit funds.`,
@@ -353,151 +483,105 @@ export default function App() {
       return;
     }
 
-    setState(prev => {
-      // Prevent race conditions / duplicate approval
-      const currentApp = prev.applications.find(a => a.id === appId);
-      if (!currentApp || currentApp.status !== 'Pending') return prev;
-
-      // Deduct from User A, credit User B
-      const nextUsers = prev.allUsers.map(u => {
-        if (u.username.toLowerCase() === job.poster.toLowerCase() && !u.isAdmin) {
-          return {
-            ...u,
-            balance: Math.max(0, u.balance - payout),
-          };
-        }
-        if (u.username.toLowerCase() === app.user.toLowerCase()) {
-          return {
-            ...u,
-            balance: u.balance + payout,
-            earnings: u.earnings + payout,
-          };
-        }
-        return u;
+    try {
+      const res = await fetch('/api/financial/approve-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appId,
+          callerUsername: state.user?.username,
+          currentState: state,
+        }),
       });
 
-      // Update application status
-      const nextApps = prev.applications.map(a => 
-        a.id === appId ? { ...a, status: 'Approved' as const, reviewedAt: new Date().toLocaleDateString() } : a
-      );
-
-      // Decrement slot (increment done count)
-      const nextJobs = prev.jobs.map(j => {
-        if (j.id === app.jobId) {
-          const nextDone = Math.min(j.needed, j.done + 1);
-          return { 
-            ...j, 
-            done: nextDone,
-            spentBudget: (j.spentBudget || 0) + payout,
-            status: nextDone >= j.needed ? ('Completed' as const) : j.status
-          };
-        }
-        return j;
-      });
-
-      const txDate = new Date().toLocaleDateString();
-      const txTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-      // CREATE TWO TRANSACTIONS:
-      // 1. User A (Task Payment - ৳XX)
-      // 2. User B (Task Reward + ৳XX)
-      const nextTransactions: Transaction[] = [
-        {
-          id: `tx_${Date.now()}_task_pay`,
-          user: job.poster,
-          type: 'Task Payment',
-          amount: -payout,
-          taskId: job.id,
-          submissionId: app.id,
-          status: 'Success',
-          date: txDate,
-          time: txTime,
-          details: `Task Payment to @${app.user} for "${job.title}" (Task #TASK-${job.id})`,
-        },
-        {
-          id: `tx_${Date.now() + 1}_task_reward`,
-          user: app.user,
-          type: 'Task Reward',
-          amount: payout,
-          taskId: job.id,
-          submissionId: app.id,
-          status: 'Success',
-          date: txDate,
-          time: txTime,
-          details: `Task Reward from @${job.poster} for "${job.title}" (Task #TASK-${job.id})`,
-        },
-        ...prev.transactions,
-      ];
-
-      // Send confirmation notification to worker
-      const nextMessages: Message[] = [
-        {
-          id: `msg_appr_${Date.now()}`,
-          from: 'system',
-          to: app.user,
-          jobId: job.id,
-          jobTitle: job.title,
-          text: `🎉 Your task has been approved! ৳${payout.toFixed(2)} has been added to your wallet for task: "${job.title}". (Task #TASK-${job.id}, Sub #SUB-${app.id})`,
-          timestamp: txTime,
-          isRead: false,
-        },
-        ...prev.messages,
-      ];
-
-      // Update current logged-in user state
-      let currentUser = prev.user;
-      if (currentUser) {
-        if (currentUser.username.toLowerCase() === job.poster.toLowerCase() && !currentUser.isAdmin) {
-          currentUser = { ...currentUser, balance: Math.max(0, currentUser.balance - payout) };
-        } else if (currentUser.username.toLowerCase() === app.user.toLowerCase()) {
-          currentUser = { ...currentUser, balance: currentUser.balance + payout, earnings: currentUser.earnings + payout };
-        }
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Failed to approve submission on server.', 'error');
+        return;
       }
 
-      return {
-        ...prev,
-        user: currentUser,
-        allUsers: nextUsers,
-        applications: nextApps,
-        jobs: nextJobs,
-        transactions: nextTransactions,
-        messages: nextMessages,
-      };
-    });
+      if (data.state) {
+        setState(prev => {
+          const activeJobs = (data.state.jobs || []).filter(
+            (j: any) => !j.isDeleted && j.status !== 'Removed' && j.status !== 'Deleted'
+          );
+          return {
+            ...data.state,
+            jobs: activeJobs,
+            user: prev.user
+              ? (data.state.allUsers?.find((u: any) => u.username.toLowerCase() === prev.user!.username.toLowerCase()) || prev.user)
+              : null,
+          };
+        });
+      }
 
-    showToast(`Task approved! ৳${payout.toFixed(2)} transferred to @${app.user}'s wallet.`, 'success');
+      showToast(`Task approved! ৳${payout.toFixed(2)} transferred to @${app.user}'s wallet.`, 'success');
+    } catch (err) {
+      console.error('Error approving task:', err);
+      showToast('Network error while processing task approval.', 'error');
+    }
   };
 
   // Employer Rejects Worker Application (with reason & notification)
-  const handleRejectApplication = (appId: number, reason: string) => {
+  const handleRejectApplication = async (appId: number, reason: string) => {
     const app = state.applications.find(a => a.id === appId);
     if (!app || app.status !== 'Pending') return;
 
-    const job = state.jobs.find(j => j.id === app.jobId);
-    const rejectionNote = reason.trim() || 'Proof is not valid.';
-    const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const rejectionNote = (reason || 'Proof is not valid.').trim();
 
-    setState(prev => ({
-      ...prev,
-      applications: prev.applications.map(a => 
-        a.id === appId ? { ...a, status: 'Rejected' as const, rejectionReason: rejectionNote, reviewedAt: new Date().toLocaleDateString() } : a
-      ),
-      messages: [
-        {
-          id: `msg_rej_${Date.now()}`,
-          from: 'system',
-          to: app.user,
-          jobId: app.jobId,
-          jobTitle: app.title,
-          text: `⚠️ Your task submission for "${app.title}" was rejected.\n\nReason: "${rejectionNote}".\nNo payment was deducted or credited.`,
-          timestamp: currentTime,
-          isRead: false,
-        },
-        ...prev.messages,
-      ],
-    }));
+    try {
+      const res = await fetch('/api/tasks/reject-proof', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appId,
+          callerUsername: state.user?.username,
+          reason: rejectionNote,
+          currentState: state,
+        }),
+      });
 
-    showToast(`Submission rejected. Reason sent to @${app.user}.`, 'info');
+      const data = await res.json();
+      if (res.ok && data.state) {
+        setState(prev => {
+          const activeJobs = (data.state.jobs || []).filter(
+            (j: any) => !j.isDeleted && j.status !== 'Removed' && j.status !== 'Deleted'
+          );
+          return {
+            ...data.state,
+            jobs: activeJobs,
+            user: prev.user
+              ? (data.state.allUsers?.find((u: any) => u.username.toLowerCase() === prev.user!.username.toLowerCase()) || prev.user)
+              : null,
+          };
+        });
+      } else {
+        const currentTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setState(prev => ({
+          ...prev,
+          applications: prev.applications.map(a => 
+            a.id === appId ? { ...a, status: 'Rejected' as const, rejectionReason: rejectionNote, reviewedAt: new Date().toLocaleDateString() } : a
+          ),
+          messages: [
+            {
+              id: `msg_rej_${Date.now()}`,
+              from: 'system',
+              to: app.user,
+              jobId: app.jobId,
+              jobTitle: app.title,
+              text: `⚠️ Your task submission for "${app.title}" was rejected.\n\nReason: "${rejectionNote}".\nNo payment was deducted or credited.`,
+              timestamp: currentTime,
+              isRead: false,
+            },
+            ...prev.messages,
+          ],
+        }));
+      }
+
+      showToast(`Submission rejected. Reason sent to @${app.user}.`, 'info');
+    } catch {
+      showToast('Network error while rejecting application.', 'error');
+    }
   };
 
   // Cancel Job Handler (Task creator cancels task -> Unused escrow refunded to owner)
@@ -573,105 +657,119 @@ export default function App() {
   };
 
   // ADMIN: Approve Job Submission -> Published on Marketplace
-  const handleAdminApproveJob = (jobId: number) => {
+  const handleAdminApproveJob = async (jobId: number) => {
     const targetJob = state.jobs.find(j => j.id === jobId);
     if (!targetJob) return;
 
-    setState(prev => ({
-      ...prev,
-      jobs: prev.jobs.map(j => j.id === jobId ? { ...j, status: 'Approved' as const } : j),
-      // Also send system notification message to employer
-      messages: [
-        {
-          id: `msg_sys_${Date.now()}`,
-          from: 'admin',
-          to: targetJob.poster,
-          jobId: targetJob.id,
-          jobTitle: targetJob.title,
-          text: `Good news! Your task "${targetJob.title}" has been approved and published to the marketplace.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          isRead: false,
-        },
-        ...prev.messages,
-      ],
-    }));
+    try {
+      const res = await fetch('/api/jobs/manage-approval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId,
+          action: 'approve',
+          callerUsername: state.user?.username || 'admin',
+          currentState: state,
+        }),
+      });
 
-    showToast(`Job #${jobId} Approved! It is now live in the Job Marketplace.`, 'success');
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Failed to approve job on server.', 'error');
+        return;
+      }
+
+      if (data.state) {
+        setState(prev => {
+          const activeJobs = (data.state.jobs || []).filter(
+            (j: any) => !j.isDeleted && j.status !== 'Removed' && j.status !== 'Deleted'
+          );
+          return {
+            ...data.state,
+            jobs: activeJobs,
+            user: prev.user
+              ? (data.state.allUsers?.find((u: any) => u.username.toLowerCase() === prev.user!.username.toLowerCase()) || prev.user)
+              : null,
+          };
+        });
+      } else {
+        setState(prev => ({
+          ...prev,
+          jobs: prev.jobs.map(j => j.id === jobId ? { ...j, status: 'Approved' as const } : j),
+        }));
+      }
+
+      showToast(`Job #${jobId} Approved! It is now live in the Job Marketplace.`, 'success');
+    } catch {
+      showToast('Network error while approving job.', 'error');
+    }
   };
 
   // ADMIN: Reject Job Submission
-  const handleAdminRejectJob = (jobId: number, reason: string) => {
+  const handleAdminRejectJob = async (jobId: number, reason: string) => {
     const targetJob = state.jobs.find(j => j.id === jobId);
     if (!targetJob) return;
 
-    // Refund worker budget escrow (keeping or refunding based on policy)
-    const escrowRefund = targetJob.pay * targetJob.needed;
-
-    setState(prev => {
-      const nextUsers = prev.allUsers.map(u => {
-        if (u.username.toLowerCase() === targetJob.poster.toLowerCase()) {
-          return { ...u, balance: u.balance + escrowRefund };
-        }
-        return u;
+    try {
+      const res = await fetch('/api/jobs/manage-approval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId,
+          action: 'reject',
+          reason,
+          callerUsername: state.user?.username || 'admin',
+          currentState: state,
+        }),
       });
 
-      let currentUser = prev.user;
-      if (currentUser && currentUser.username.toLowerCase() === targetJob.poster.toLowerCase()) {
-        currentUser = { ...currentUser, balance: currentUser.balance + escrowRefund };
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Failed to reject job on server.', 'error');
+        return;
       }
 
-      return {
-        ...prev,
-        user: currentUser,
-        allUsers: nextUsers,
-        jobs: prev.jobs.map(j => 
-          j.id === jobId ? { ...j, status: 'Rejected' as const, rejectionReason: reason } : j
-        ),
-        transactions: [
-          {
-            id: `tx_${Date.now()}_refund`,
-            user: targetJob.poster,
-            type: 'Escrow Refund',
-            amount: escrowRefund,
-            status: 'Success',
-            date: new Date().toLocaleDateString(),
-            details: `Worker escrow refund for rejected job #${jobId}`,
-          },
-          ...prev.transactions,
-        ],
-        messages: [
-          {
-            id: `msg_sys_${Date.now()}`,
-            from: 'admin',
-            to: targetJob.poster,
-            jobId: targetJob.id,
-            jobTitle: targetJob.title,
-            text: `Your job "${targetJob.title}" was rejected by admin: ${reason}. Escrow budget of ৳${escrowRefund.toFixed(2)} has been refunded to your wallet.`,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            isRead: false,
-          },
-          ...prev.messages,
-        ],
-      };
-    });
+      if (data.state) {
+        setState(prev => {
+          const activeJobs = (data.state.jobs || []).filter(
+            (j: any) => !j.isDeleted && j.status !== 'Removed' && j.status !== 'Deleted'
+          );
+          return {
+            ...data.state,
+            jobs: activeJobs,
+            user: prev.user
+              ? (data.state.allUsers?.find((u: any) => u.username.toLowerCase() === prev.user!.username.toLowerCase()) || prev.user)
+              : null,
+          };
+        });
+      } else {
+        setState(prev => ({
+          ...prev,
+          jobs: prev.jobs.map(j => j.id === jobId ? { ...j, status: 'Rejected' as const, rejectionReason: reason } : j),
+        }));
+      }
 
-    showToast(`Job #${jobId} Rejected. Poster has been notified.`, 'info');
+      showToast(`Job #${jobId} Rejected. Poster has been notified.`, 'info');
+    } catch {
+      showToast('Network error while rejecting job.', 'error');
+    }
   };
 
-  // Delete Job Handler (User can ONLY delete their own post; Admin can delete ANY post)
-  const handleDeleteJob = (jobId: number) => {
+  // Delete / Remove Job Handler (Admin or Job Owner -> Permanent database deletion & real-time update)
+  const handleDeleteJob = async (jobId: number) => {
     if (!state.user) return;
     const targetJob = state.jobs.find(j => j.id === jobId);
     if (!targetJob) return;
 
     const isOwner = targetJob.poster.toLowerCase() === state.user.username.toLowerCase();
-    const isAdmin = state.user.isAdmin;
+    const isAdmin = !!state.user.isAdmin || state.user.username.toLowerCase() === 'admin';
 
     if (!isAdmin && !isOwner) {
-      showToast('You can only delete jobs created by yourself.', 'error');
+      showToast('Unauthorized: You can only remove tasks you created.', 'error');
       return;
     }
 
+    // Immediately remove from UI state so it disappears in real-time without page refresh!
     setState(prev => ({
       ...prev,
       jobs: prev.jobs.filter(j => j.id !== jobId),
@@ -679,7 +777,45 @@ export default function App() {
     if (selectedJobForDetails?.id === jobId) {
       setSelectedJobForDetails(null);
     }
-    showToast(`Job #${jobId} deleted successfully.`, 'info');
+
+    try {
+      const res = await fetch('/api/jobs/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId,
+          callerUsername: state.user.username,
+          reason: isAdmin ? 'Removed by administrator' : 'Deleted by task owner',
+          currentState: {
+            ...state,
+            jobs: state.jobs.filter(j => j.id !== jobId),
+          },
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Failed to remove task from database.', 'error');
+      } else {
+        if (data.state) {
+          setState(prev => {
+            const activeJobs = (data.state.jobs || []).filter(
+              (j: any) => !j.isDeleted && j.status !== 'Removed' && j.status !== 'Deleted' && j.id !== jobId
+            );
+            return {
+              ...data.state,
+              jobs: activeJobs,
+              user: prev.user
+                ? (data.state.allUsers?.find((u: any) => u.username.toLowerCase() === prev.user!.username.toLowerCase()) || prev.user)
+                : null,
+            };
+          });
+        }
+        showToast(`Job #${jobId} permanently removed.`, 'success');
+      }
+    } catch (err) {
+      console.error('Failed to remove job from backend:', err);
+    }
   };
 
   // ADMIN: Mark Withdrawal as Processing
@@ -731,6 +867,14 @@ export default function App() {
         ...prev.messages,
       ],
     }));
+
+    // Persist to server database
+    fetch('/api/financial/manage-withdrawal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ withdrawId: id, action: 'approve' }),
+    }).catch(() => {});
+
     showToast(`Withdrawal of ৳${targetWd.amount.toFixed(2)} marked as Paid successfully!`, 'success');
   };
 
@@ -794,20 +938,40 @@ export default function App() {
       };
     });
 
+    // Persist to server database
+    fetch('/api/financial/manage-withdrawal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ withdrawId: id, action: 'reject', reason: rejectionNote }),
+    }).catch(() => {});
+
     showToast(`Withdrawal request #${id} rejected. ৳${targetWd.amount.toFixed(2)} refunded to @${targetWd.user}.`, 'info');
   };
 
   // ADMIN: Toggle User Ban
-  const handleAdminToggleUserBan = (username: string) => {
+  const handleAdminToggleUserBan = async (username: string) => {
+    const userToToggle = state.allUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
+    const newBanStatus = !userToToggle?.isBanned;
+
     setState(prev => ({
       ...prev,
       allUsers: prev.allUsers.map(u => 
         u.username.toLowerCase() === username.toLowerCase() 
-          ? { ...u, isBanned: !u.isBanned } 
+          ? { ...u, isBanned: newBanStatus } 
           : u
       ),
     }));
-    showToast(`User @${username} status updated.`, 'info');
+
+    try {
+      await fetch('/api/admin/users/ban', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, ban: newBanStatus }),
+      });
+      showToast(`User @${username} account ${newBanStatus ? 'suspended' : 'activated'}.`, 'info');
+    } catch {
+      showToast(`User @${username} status updated.`, 'info');
+    }
   };
 
   // ADMIN: Reply Support Ticket
@@ -876,6 +1040,20 @@ export default function App() {
       transactions: [newTx, ...prev.transactions],
     }));
 
+    // Persist to server database
+    fetch('/api/wallet/deposit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: state.user.username,
+        amount,
+        trxId: cleanTrx,
+        method,
+        senderNumber,
+        screenshot,
+      }),
+    }).catch(() => {});
+
     showToast(`Deposit request of ৳${amount.toFixed(2)} submitted! Balance will be added after admin verifies TrxID.`, 'success');
     return true;
   };
@@ -941,6 +1119,13 @@ export default function App() {
       };
     });
 
+    // Persist to server database
+    fetch('/api/financial/manage-deposit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ depositId, action: 'approve' }),
+    }).catch(() => {});
+
     showToast(`Deposit approved! ৳${deposit.amount.toFixed(2)} added to @${deposit.user}'s wallet.`, 'success');
   };
 
@@ -975,6 +1160,13 @@ export default function App() {
         ...prev.messages,
       ],
     }));
+
+    // Persist to server database
+    fetch('/api/financial/manage-deposit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ depositId, action: 'reject', reason: rejectionNote }),
+    }).catch(() => {});
 
     showToast(`Deposit request #${depositId} rejected. Reason sent to @${deposit.user}.`, 'info');
   };
@@ -1031,6 +1223,18 @@ export default function App() {
         ...prev.transactions,
       ],
     }));
+
+    // Persist to server database atomically
+    fetch('/api/wallet/withdraw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: state.user.username,
+        amount,
+        method,
+        acc,
+      }),
+    }).catch(() => {});
 
     showToast(`Withdrawal request of ৳${amount.toFixed(2)} submitted! Payout will be sent after Admin verification.`, 'info');
   };

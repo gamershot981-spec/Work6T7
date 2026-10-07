@@ -35,18 +35,55 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
   // Admin State
   const [adminUsername] = useState('WORK6T7');
   const [adminPassword, setAdminPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!mode) return null;
 
-  // Handle Login
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  // Handle Login with Server-side Database Verification
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanId = logIdentifier.trim().toLowerCase();
     const cleanPass = logPassword.trim();
 
+    if (!cleanId || !cleanPass) {
+      onShowToast('Please enter both username/email and password.', 'error');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // 1. First attempt authoritative database login via server
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: cleanId, password: cleanPass }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          setIsSubmitting(false);
+          onLoginSuccess(data.user);
+          onShowToast(`Welcome back, ${data.user.name}! (Wallet: ৳${Number(data.user.balance).toFixed(2)})`, 'success');
+          onClose();
+          return;
+        }
+      } else if (res.status === 403) {
+        setIsSubmitting(false);
+        onShowToast('This account has been suspended by administrator.', 'error');
+        return;
+      }
+    } catch {
+      // Server unreachable, fallback to local database
+    }
+
+    // Fallback to local verified store
     const matchedUser = allUsers.find(
       u => (u.username.toLowerCase() === cleanId || (u.email && u.email.toLowerCase() === cleanId)) && u.password === cleanPass
     );
+
+    setIsSubmitting(false);
 
     if (matchedUser) {
       if (matchedUser.isBanned) {
@@ -54,15 +91,15 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
         return;
       }
       onLoginSuccess(matchedUser);
-      onShowToast(`Welcome back, ${matchedUser.name}!`, 'success');
+      onShowToast(`Welcome back, ${matchedUser.name}! (Wallet: ৳${Number(matchedUser.balance).toFixed(2)})`, 'success');
       onClose();
     } else {
       onShowToast('Invalid username or password. Please verify credentials.', 'error');
     }
   };
 
-  // Handle Registration with Bonuses
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  // Handle Registration with Database Atomicity & Signup Bonus
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanUsername = regUsername.trim().toLowerCase();
     const cleanPassword = regPassword.trim();
@@ -96,6 +133,34 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
       }
     }
 
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: cleanUsername,
+          password: cleanPassword,
+          name: cleanName || cleanUsername,
+          email: cleanEmail || `${cleanUsername}@mail.bd`,
+          refCode: cleanRef,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setIsSubmitting(false);
+        onRegisterSuccess(data.user, data.transactions, data.referrer);
+        onShowToast('Registration successful! ৳5.00 bonus credited to your wallet.', 'success');
+        onClose();
+        return;
+      }
+    } catch {
+      // Fallback
+    }
+
+    setIsSubmitting(false);
     const generatedRefCode = `W6T7-${cleanUsername.toUpperCase()}`;
 
     // Create New User with ৳5.00 Signup Bonus
@@ -128,7 +193,6 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
     // Referral Bonus Logic: Referrer gets ৳5.00
     let updatedReferrer: User | undefined;
     if (cleanRef) {
-      // Fraud Check 3: Cannot refer yourself
       if (cleanRef === generatedRefCode || cleanRef === `W6T7-${cleanUsername.toUpperCase()}`) {
         onShowToast('Self-referral is strictly prohibited.', 'error');
         return;
@@ -136,7 +200,6 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
 
       const referrer = allUsers.find(u => u.refCode.toUpperCase() === cleanRef);
       if (referrer) {
-        // Valid referrer! Grant ৳5.00 to referrer
         updatedReferrer = {
           ...referrer,
           balance: referrer.balance + 5.0,

@@ -43,8 +43,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onRequireLogin,
   onDeleteJob,
 }) => {
-  // Only show approved jobs
-  const approvedJobs = jobs.filter(j => j.status === 'Approved').slice(0, 3);
+  // Only show active approved jobs (excluding removed/deleted)
+  const approvedJobs = jobs.filter(
+    j => (j.status === 'Approved' || j.status === 'Active') && !j.isDeleted
+  ).slice(0, 3);
 
   return (
     <div>
@@ -235,11 +237,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (window.confirm(`Permanently delete post #${job.id}: "${job.title}"?`)) {
-                            onDeleteJob(job.id);
-                          }
+                          onDeleteJob(job.id);
                         }}
-                        className="mt-2 w-full py-1.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors border border-rose-200"
+                        className="mt-2 w-full py-1.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors border border-rose-200 cursor-pointer"
                         title="Admin 1-Click Delete"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -253,11 +253,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (window.confirm(`Permanently delete your post #${job.id}: "${job.title}"?`)) {
-                            onDeleteJob(job.id);
-                          }
+                          onDeleteJob(job.id);
                         }}
-                        className="mt-2 w-full py-1.5 px-3 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors border border-slate-200 hover:border-rose-200"
+                        className="mt-2 w-full py-1.5 px-3 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors border border-slate-200 hover:border-rose-200 cursor-pointer"
                         title="Delete My Post"
                       >
                         <Trash2 className="w-3.5 h-3.5" />

@@ -58,11 +58,12 @@ export function getInitialState(): AppState {
         const cleanedUsers = parsed.allUsers
           .filter((u: User) => u.username !== 'tanvir_dev' && u.username !== 'digitalagent')
           .map((u: User) => {
-            // Normalize non-admin balances to ৳5 if requested
-            if (!u.isAdmin) {
-              return { ...u, balance: 5.0 };
-            }
-            return u;
+            // Strictly preserve user balance and earnings from database/storage
+            return {
+              ...u,
+              balance: typeof u.balance === 'number' ? u.balance : 5.0,
+              earnings: typeof u.earnings === 'number' ? u.earnings : 0,
+            };
           });
 
         // Ensure admin user is always present with the updated secret passcode
@@ -76,12 +77,16 @@ export function getInitialState(): AppState {
           cleanedUsers.unshift(defaultUsers[0]);
         }
 
-        // If current logged-in user was a demo user, log out
+        // If current logged-in user was a demo user, log out; otherwise keep exact state
         let currentUser = parsed.user;
         if (currentUser && (currentUser.username === 'tanvir_dev' || currentUser.username === 'digitalagent')) {
           currentUser = null;
-        } else if (currentUser && !currentUser.isAdmin) {
-          currentUser = { ...currentUser, balance: 5.0 };
+        } else if (currentUser) {
+          // Sync currentUser with their authoritative entry in cleanedUsers
+          const found = cleanedUsers.find((u: User) => u.username.toLowerCase() === currentUser.username.toLowerCase());
+          if (found) {
+            currentUser = { ...found };
+          }
         }
 
         return {
