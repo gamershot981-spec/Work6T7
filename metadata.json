@@ -1,0 +1,6 @@
+{
+  "name": "Work 6T7 - Microjob Marketplace",
+  "description": "Bangladesh's microjob marketplace platform featuring verified tasks, instant wallet payouts, referral bonuses, messaging, and admin approval workflows.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
