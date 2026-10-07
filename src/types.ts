@@ -18,7 +18,7 @@ export interface User {
   currentSection?: string;
 }
 
-export type JobStatus = 'Draft' | 'Pending Approval' | 'Active' | 'Approved' | 'Paused' | 'Completed' | 'Expired' | 'Cancelled' | 'Rejected';
+export type JobStatus = 'Draft' | 'Pending Approval' | 'Active' | 'Approved' | 'Paused' | 'Disabled' | 'Completed' | 'Expired' | 'Cancelled' | 'Rejected';
 
 export interface Job {
   id: number;
@@ -33,12 +33,15 @@ export interface Job {
   inst: string;
   requiredProof?: string;
   deadline?: string;
+  deadlineTimestamp?: number;
   imageUrl?: string;
   totalBudget?: number;
   spentBudget?: number;
   status: JobStatus;
   rejectionReason?: string;
   createdAt: string;
+  approvedAt?: string;
+  approvedBy?: string;
 }
 
 export interface Application {

@@ -56,6 +56,8 @@ interface AdminViewProps {
   onApproveJob: (jobId: number) => void;
   onRejectJob: (jobId: number, reason: string) => void;
   onDeleteJob: (jobId: number) => void;
+  onToggleJobPause?: (jobId: number) => void;
+  onToggleJobDisable?: (jobId: number) => void;
   onApproveDeposit: (depositId: number) => void;
   onRejectDeposit: (depositId: number, reason: string) => void;
   onApproveWithdrawal: (id: number) => void;
@@ -85,6 +87,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onApproveJob,
   onRejectJob,
   onDeleteJob,
+  onToggleJobPause,
+  onToggleJobDisable,
   onApproveDeposit,
   onRejectDeposit,
   onApproveWithdrawal,
@@ -394,109 +398,151 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 mb-6">
-                {pendingJobs.map(job => (
-                  <div
-                    key={job.id}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs"
-                  >
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
-                      <div>
-                        <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
-                          <span className="font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
-                            {job.category}
-                          </span>
-                          <span>·</span>
-                          <span className="font-mono">Job #{job.id}</span>
-                          <span>·</span>
-                          <span>Posted by: <b>@{job.poster}</b></span>
-                          <span>·</span>
-                          <span>{job.createdAt}</span>
-                        </div>
-                        <h3 className="text-lg font-bold text-slate-900">{job.title}</h3>
-                      </div>
+                {pendingJobs.map(job => {
+                  const posterUser = users.find(u => u.username.toLowerCase() === job.poster.toLowerCase());
 
-                      <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200 shrink-0 text-xs">
+                  return (
+                    <div
+                      key={job.id}
+                      className="bg-white rounded-2xl border border-amber-200 p-6 shadow-xs relative overflow-hidden"
+                    >
+                      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
                         <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Worker Pay</span>
-                          <span className="text-base font-black text-emerald-600 font-mono tabular-nums">৳{job.pay.toFixed(2)}</span>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-1">
+                            <span className="font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                              {job.category}
+                            </span>
+                            <span>·</span>
+                            <span className="font-mono font-bold text-slate-700">Job #{job.id}</span>
+                            <span>·</span>
+                            <span>
+                              Employer: <b>@{job.poster}</b> ({posterUser?.name || 'User'})
+                            </span>
+                            <span>·</span>
+                            <span>Submitted: {job.createdAt}</span>
+                            {job.deadline && (
+                              <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded font-semibold text-[11px]">
+                                ⏰ Deadline: {job.deadline}
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="text-lg font-bold text-slate-900">{job.title}</h3>
                         </div>
-                        <div className="border-l border-slate-200 pl-3">
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Workers Needed</span>
-                          <span className="text-base font-bold text-slate-800 font-mono tabular-nums">{job.needed}</span>
-                        </div>
-                        <div className="border-l border-slate-200 pl-3">
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block">Review Fee Paid</span>
-                          <span className="text-sm font-bold text-emerald-600 font-mono tabular-nums">৳10.00 ✓</span>
+
+                        <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200 shrink-0 text-xs">
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Worker Pay</span>
+                            <span className="text-base font-black text-emerald-600 font-mono tabular-nums">৳{job.pay.toFixed(2)}</span>
+                          </div>
+                          <div className="border-l border-slate-200 pl-3">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Workers Needed</span>
+                            <span className="text-base font-bold text-slate-800 font-mono tabular-nums">{job.needed}</span>
+                          </div>
+                          <div className="border-l border-slate-200 pl-3">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Post Fee Paid</span>
+                            <span className="text-sm font-bold text-indigo-700 font-mono tabular-nums">৳10.00 ✓</span>
+                          </div>
+                          <div className="border-l border-slate-200 pl-3">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Owner Balance</span>
+                            <span className="text-sm font-bold text-emerald-600 font-mono tabular-nums">৳{(posterUser?.balance || 0).toFixed(2)}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-700 whitespace-pre-line leading-relaxed">
-                      <span className="font-bold text-slate-900 block mb-1">Task Instructions:</span>
-                      {job.inst}
-                    </div>
+                      {/* Task Description Overview if present */}
+                      {job.description && job.description !== job.title && (
+                        <div className="mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700">
+                          <span className="font-bold text-slate-900 block mb-0.5">Task Description / Overview:</span>
+                          <p>{job.description}</p>
+                        </div>
+                      )}
 
-                    {rejectingJobId === job.id && (
-                      <div className="mb-4 p-4 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
-                        <label className="block text-xs font-bold text-rose-800">
-                          Reason for Rejection (sent to user):
-                        </label>
-                        <input
-                          type="text"
-                          value={rejectReason}
-                          onChange={e => setRejectReason(e.target.value)}
-                          placeholder="e.g. Inappropriate task description or invalid verification proof."
-                          className="w-full px-3 py-2 text-xs bg-white border border-rose-300 rounded-lg outline-none"
-                        />
-                        <div className="flex justify-end gap-2">
+                      {/* Task Instructions */}
+                      <div className="mb-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-700 whitespace-pre-line leading-relaxed">
+                        <span className="font-bold text-slate-900 block mb-1">Step-by-Step Task Instructions:</span>
+                        {job.inst}
+                      </div>
+
+                      {/* Required Proof */}
+                      {job.requiredProof && (
+                        <div className="mb-3 p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 text-xs text-indigo-950">
+                          <span className="font-bold block mb-0.5">Required Proof from Worker:</span>
+                          <p>{job.requiredProof}</p>
+                        </div>
+                      )}
+
+                      {/* Image Attachment Preview if provided */}
+                      {job.imageUrl && (
+                        <div className="mb-3">
+                          <span className="text-xs font-bold text-slate-700 block mb-1">Attached Reference Image:</span>
+                          <div className="w-32 h-24 rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+                            <img src={job.imageUrl} alt="Job reference" className="w-full h-full object-cover" />
+                          </div>
+                        </div>
+                      )}
+
+                      {rejectingJobId === job.id && (
+                        <div className="mb-4 p-4 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
+                          <label className="block text-xs font-bold text-rose-800">
+                            Reason for Rejection (sent to user):
+                          </label>
+                          <input
+                            type="text"
+                            value={rejectReason}
+                            onChange={e => setRejectReason(e.target.value)}
+                            placeholder="e.g. Inappropriate task description or invalid verification proof."
+                            className="w-full px-3 py-2 text-xs bg-white border border-rose-300 rounded-lg outline-none"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => setRejectingJobId(null)}
+                              className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleConfirmReject(job.id)}
+                              className="px-3 py-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg"
+                            >
+                              Confirm Reject
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Permanently delete post #${job.id}: "${job.title}"?`)) {
+                              onDeleteJob(job.id);
+                            }
+                          }}
+                          className="px-3.5 py-2 text-rose-600 hover:bg-rose-50 border border-rose-200 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete Post
+                        </button>
+
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => setRejectingJobId(null)}
-                            className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg"
+                            onClick={() => setRejectingJobId(job.id)}
+                            className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 flex items-center gap-1.5 transition-colors"
                           >
-                            Cancel
+                            <X className="w-3.5 h-3.5" />
+                            Reject Job
                           </button>
                           <button
-                            onClick={() => handleConfirmReject(job.id)}
-                            className="px-3 py-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg"
+                            onClick={() => onApproveJob(job.id)}
+                            className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-colors"
                           >
-                            Confirm Reject
+                            <Check className="w-3.5 h-3.5" />
+                            Approve & Publish Live
                           </button>
                         </div>
                       </div>
-                    )}
-
-                    <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                      <button
-                        onClick={() => {
-                          if (window.confirm(`Permanently delete post #${job.id}: "${job.title}"?`)) {
-                            onDeleteJob(job.id);
-                          }
-                        }}
-                        className="px-3.5 py-2 text-rose-600 hover:bg-rose-50 border border-rose-200 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Delete Post
-                      </button>
-
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setRejectingJobId(job.id)}
-                          className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200 flex items-center gap-1.5 transition-colors"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                          Reject Job
-                        </button>
-                        <button
-                          onClick={() => onApproveJob(job.id)}
-                          className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-colors"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          Approve & Publish
-                        </button>
-                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -506,7 +552,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">All Live Marketplace Posts ({jobs.length})</h3>
-                <p className="text-xs text-slate-500">Admin can delete any job post from the marketplace at any time.</p>
+                <p className="text-xs text-slate-500">Admin can pause, disable, or delete any job post from the marketplace at any time.</p>
               </div>
             </div>
 
@@ -520,8 +566,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     <th className="p-3">Poster</th>
                     <th className="p-3">Worker Pay</th>
                     <th className="p-3">Completed</th>
+                    <th className="p-3">Deadline</th>
                     <th className="p-3">Status</th>
-                    <th className="p-3 text-right">Admin Action</th>
+                    <th className="p-3 text-right">Admin Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -533,26 +580,62 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       <td className="p-3 text-indigo-600 font-medium">@{j.poster}</td>
                       <td className="p-3 font-mono font-bold text-emerald-600 tabular-nums">৳{j.pay.toFixed(2)}</td>
                       <td className="p-3 font-mono tabular-nums">{j.done} / {j.needed}</td>
+                      <td className="p-3 font-mono text-slate-500">{j.deadline || '—'}</td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          j.status === 'Approved'
+                          j.status === 'Active' || j.status === 'Approved'
                             ? 'bg-emerald-100 text-emerald-800'
                             : j.status === 'Pending Approval'
                             ? 'bg-amber-100 text-amber-800'
+                            : j.status === 'Paused'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : j.status === 'Disabled'
+                            ? 'bg-purple-100 text-purple-800'
                             : 'bg-rose-100 text-rose-800'
                         }`}>
                           {j.status}
                         </span>
                       </td>
                       <td className="p-3 text-right">
-                        <button
-                          onClick={() => onDeleteJob(j.id)}
-                          className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1 shadow-xs"
-                          title="1-Click Delete Post"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Delete Post
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {onToggleJobPause && (
+                            <button
+                              onClick={() => onToggleJobPause(j.id)}
+                              className={`px-2 py-1 text-xs font-bold rounded-lg border transition-colors ${
+                                j.status === 'Paused'
+                                  ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+                                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                              }`}
+                              title={j.status === 'Paused' ? 'Resume Task' : 'Pause Task'}
+                            >
+                              {j.status === 'Paused' ? '▶ Resume' : '⏸ Pause'}
+                            </button>
+                          )}
+                          {onToggleJobDisable && (
+                            <button
+                              onClick={() => onToggleJobDisable(j.id)}
+                              className={`px-2 py-1 text-xs font-bold rounded-lg border transition-colors ${
+                                j.status === 'Disabled'
+                                  ? 'bg-purple-100 text-purple-900 border-purple-300 hover:bg-purple-200'
+                                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                              }`}
+                              title={j.status === 'Disabled' ? 'Enable Task' : 'Disable Task'}
+                            >
+                              {j.status === 'Disabled' ? 'Enable' : 'Disable'}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Delete Task #${j.id}: "${j.title}"?`)) {
+                                onDeleteJob(j.id);
+                              }
+                            }}
+                            className="p-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg transition-colors"
+                            title="Delete Task"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

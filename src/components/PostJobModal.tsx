@@ -50,12 +50,16 @@ export const PostJobModal: React.FC<PostJobModalProps> = ({
   const [imageUrl, setImageUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Escrow Budget calculation:
-  // Total Worker Budget = payPerWorker * workersNeeded
-  // Platform Review Fee = ৳10 (or ৳0 for admin)
+  // Task Post Fee rule:
+  // Exactly ৳10 is deducted from Owner's wallet when creating the task.
+  // Worker reward is deducted directly from Owner's wallet when Owner approves the submission.
   const PLATFORM_FEE = currentUser.isAdmin ? 0 : 10.0;
-  const workerBudget = Math.max(0, payPerWorker * workersNeeded);
-  const totalRequiredBudget = workerBudget + PLATFORM_FEE;
+  const workerReward = Math.max(0, payPerWorker);
+  const totalSlots = Math.max(1, workersNeeded);
+  const totalPotentialBudget = workerReward * totalSlots;
+
+  // Amount deducted from wallet right now upon posting = ONLY ৳10 posting fee!
+  const totalRequiredBudget = PLATFORM_FEE;
   const hasEnoughFunds = currentUser.balance >= totalRequiredBudget;
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,16 +105,24 @@ export const PostJobModal: React.FC<PostJobModalProps> = ({
       return;
     }
 
-    // Escrow balance validation
+    // Task post fee validation (Owner needs ৳10 to post)
     if (!hasEnoughFunds) {
       onShowToast(
-        `Insufficient wallet balance! You need ৳${totalRequiredBudget.toFixed(2)} to post this task.`,
+        `Insufficient wallet balance! Task posting fee is ৳${totalRequiredBudget.toFixed(2)}. Please deposit funds.`,
         'error'
       );
       return;
     }
 
     setIsSubmitting(true);
+
+    let deadlineTimestamp: number | undefined = undefined;
+    if (deadline === '24 Hours') deadlineTimestamp = Date.now() + 24 * 60 * 60 * 1000;
+    else if (deadline === '2 Days') deadlineTimestamp = Date.now() + 2 * 24 * 60 * 60 * 1000;
+    else if (deadline === '3 Days') deadlineTimestamp = Date.now() + 3 * 24 * 60 * 60 * 1000;
+    else if (deadline === '5 Days') deadlineTimestamp = Date.now() + 5 * 24 * 60 * 60 * 1000;
+    else if (deadline === '7 Days') deadlineTimestamp = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    else if (deadline === '14 Days') deadlineTimestamp = Date.now() + 14 * 24 * 60 * 60 * 1000;
 
     const jobId = Date.now();
     const newJob: Job = {
@@ -126,48 +138,39 @@ export const PostJobModal: React.FC<PostJobModalProps> = ({
       inst: instructions.trim(),
       requiredProof: requiredProof.trim(),
       deadline,
+      deadlineTimestamp,
       imageUrl: imageUrl.trim() || undefined,
-      totalBudget: workerBudget,
+      totalBudget: totalPotentialBudget,
       spentBudget: 0,
-      status: currentUser.isAdmin ? 'Approved' : 'Active', // Instantly active for trusted post
+      status: currentUser.isAdmin ? 'Approved' : 'Pending Approval', // User jobs are Pending Admin Approval
       createdAt: new Date().toISOString().split('T')[0],
     };
 
     const txDate = new Date().toLocaleDateString();
     const transactions: Transaction[] = [];
 
-    // 1. Escrow Budget Reserve Transaction
-    if (workerBudget > 0) {
-      transactions.push({
-        id: `tx_${Date.now()}_escrow`,
-        user: currentUser.username,
-        type: 'Task Budget Reserve',
-        amount: -workerBudget,
-        taskId: jobId,
-        status: 'Success',
-        date: txDate,
-        details: `Task budget escrow reserved for Task #${jobId} (${workersNeeded} slots × ৳${payPerWorker.toFixed(2)})`,
-        description: `Reserved for worker payouts on task: ${newJob.title}`,
-      });
-    }
-
-    // 2. Platform Posting Fee Transaction (if applicable)
+    // Platform Posting Fee Transaction (Owner pays ৳10 to publish task)
     if (PLATFORM_FEE > 0) {
       transactions.push({
-        id: `tx_${Date.now() + 1}_fee`,
+        id: `tx_${Date.now()}_fee`,
         user: currentUser.username,
         type: 'Job Posting Fee',
         amount: -PLATFORM_FEE,
         taskId: jobId,
         status: 'Success',
         date: txDate,
-        details: `Platform task publication fee for Task #${jobId}`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        details: `Task Posting Fee for Task #${jobId} (৳10.00)`,
+        description: `Paid ৳10 publication fee to submit task: ${newJob.title}`,
       });
     }
 
-    onPostJob(newJob, transactions, totalRequiredBudget);
+    // Deduct ONLY the ৳10 posting fee now. Worker reward will be deducted when Owner approves worker!
+    onPostJob(newJob, transactions, PLATFORM_FEE);
     onShowToast(
-      `Task published! ৳${workerBudget.toFixed(2)} escrow reserved in your task pool.`,
+      currentUser.isAdmin
+        ? 'Task published directly as Admin!'
+        : `Task submitted! ৳${PLATFORM_FEE.toFixed(2)} posting fee deducted. Status: Pending Admin Approval. Admin approval-এর পর সাইটে সবার জন্য লাইভ হবে।`,
       'success'
     );
     onClose();
@@ -370,22 +373,36 @@ export const PostJobModal: React.FC<PostJobModalProps> = ({
             )}
           </div>
 
-          {/* Pricing & Escrow Breakdown Card */}
+          {/* Pricing & Fee Breakdown Card */}
           <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2 text-xs">
-            <div className="flex justify-between items-center text-slate-600">
-              <span>Worker Escrow Budget ({workersNeeded} slots × ৳{payPerWorker.toFixed(2)}):</span>
-              <span className="font-mono font-bold text-slate-900">৳{workerBudget.toFixed(2)}</span>
+            <div className="flex justify-between items-center text-slate-700">
+              <span className="font-semibold">📝 Task Post Fee (এখন ওয়ালেট থেকে কাটা হবে):</span>
+              <span className="font-mono font-bold text-indigo-700 text-sm">
+                ৳{PLATFORM_FEE.toFixed(2)}
+              </span>
             </div>
-            {PLATFORM_FEE > 0 && (
-              <div className="flex justify-between items-center text-slate-600">
-                <span>Platform Publication Fee:</span>
-                <span className="font-mono font-bold text-indigo-700">৳{PLATFORM_FEE.toFixed(2)}</span>
-              </div>
-            )}
+
+            <div className="flex justify-between items-center text-slate-600">
+              <span>💰 Worker Reward (প্রতি স্লট):</span>
+              <span className="font-mono font-bold text-emerald-600">
+                ৳{payPerWorker.toFixed(2)}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center text-slate-500 text-[11px]">
+              <span>👥 Available Slots:</span>
+              <span className="font-mono font-semibold">{workersNeeded} slots</span>
+            </div>
+
+            <div className="flex justify-between items-center text-slate-500 text-[11px]">
+              <span>❌ Extra Commission / Hidden Charge:</span>
+              <span className="font-bold text-emerald-600">৳0.00 (0% - কোনো চার্জ নেই)</span>
+            </div>
+
             <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-bold">
-              <span className="text-slate-900">Total Wallet Deduction (Escrow Reserved):</span>
+              <span className="text-slate-900">Total Deduction Right Now:</span>
               <span className="font-mono font-extrabold text-indigo-600 text-base">
-                ৳{totalRequiredBudget.toFixed(2)}
+                ৳{PLATFORM_FEE.toFixed(2)}
               </span>
             </div>
 
@@ -396,16 +413,16 @@ export const PostJobModal: React.FC<PostJobModalProps> = ({
               </span>
             </div>
 
-            <p className="text-[10px] text-slate-500 leading-relaxed pt-1">
-              🛡️ <b>Escrow Protection:</b> ৳{workerBudget.toFixed(2)} আপনার ওয়ালেট থেকে সুরক্ষিত রিজার্ভে থাকবে। Worker কাজ জমা দেওয়ার পর আপনি যাচাই করে Approve করলে তবেই worker টাকা পাবে। Task বাতিল করলে অব্যবহৃত টাকা ওয়ালেটে ফেরত আসবে।
-            </p>
+            <div className="p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-xl text-[11px] text-indigo-900 leading-relaxed">
+              📌 <b>পেমেন্ট নিয়ম:</b> Task পোস্ট করার সময় আপনার ওয়ালেট থেকে আলাদা করে <b>শুধু ৳10</b> পোস্টিং ফি কাটা হবে। Worker কাজ জমা দেওয়ার পর আপনি যখন <b>Approve</b> করবেন, ঠিক তখন আপনার ওয়ালেট থেকে টাস্কের নির্ধারিত ৳{payPerWorker.toFixed(2)} কাটা হবে এবং Worker-এর ওয়ালেটে সরাসরি যোগ হবে। Worker ও Owner-এর মাঝে কোনো এক্সট্রা কমিশন নেই।
+            </div>
 
             {!hasEnoughFunds && (
               <div className="mt-2 p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <span>
-                    Insufficient balance! You need ৳{(totalRequiredBudget - currentUser.balance).toFixed(2)} more to reserve this task budget.
+                    Insufficient balance! You need ৳{(totalRequiredBudget - currentUser.balance).toFixed(2)} more for the ৳10 task posting fee.
                   </span>
                   <button
                     type="button"
@@ -425,8 +442,8 @@ export const PostJobModal: React.FC<PostJobModalProps> = ({
           {/* Action Buttons */}
           <div className="flex items-center justify-between pt-3 border-t border-slate-100">
             <span className="text-[11px] text-slate-400 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500" />
-              Instant Escrow Protected
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              <span>0% Commission · ৳10 Flat Post Fee</span>
             </span>
 
             <div className="flex gap-2">
@@ -442,7 +459,13 @@ export const PostJobModal: React.FC<PostJobModalProps> = ({
                 disabled={!hasEnoughFunds || isSubmitting}
                 className="px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
               >
-                <span>{isSubmitting ? 'Publishing...' : `Reserve ৳${totalRequiredBudget.toFixed(2)} & Publish Task`}</span>
+                <span>
+                  {isSubmitting
+                    ? 'Publishing...'
+                    : PLATFORM_FEE > 0
+                    ? `Pay ৳${PLATFORM_FEE.toFixed(2)} & Post Task`
+                    : 'Post Task (Free)'}
+                </span>
               </button>
             </div>
           </div>
