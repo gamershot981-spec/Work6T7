@@ -10,7 +10,15 @@ import {
   Users, 
   ExternalLink,
   AlertCircle,
-  Trash2
+  Trash2,
+  XCircle,
+  Eye,
+  AlertTriangle,
+  RotateCcw,
+  Sparkles,
+  Link as LinkIcon,
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -21,9 +29,11 @@ interface DashboardViewProps {
   onOpenPostJob: () => void;
   onNavigate: (view: string) => void;
   onApproveApplication: (applicationId: number) => void;
-  onRejectApplication: (applicationId: number) => void;
+  onRejectApplication: (applicationId: number, reason: string) => void;
+  onCancelJob?: (jobId: number) => void;
   onDeleteJob: (jobId: number) => void;
   onShowToast: (msg: string, type?: 'success' | 'error') => void;
+  onOpenDispute?: (task?: Job | null, sub?: Application | null) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -35,21 +45,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigate,
   onApproveApplication,
   onRejectApplication,
+  onCancelJob,
   onDeleteJob,
   onShowToast,
+  onOpenDispute,
 }) => {
-  const [activeTab, setActiveTab] = useState<'applied' | 'posted' | 'referrals'>('applied');
+  const [activeTab, setActiveTab] = useState<'posted' | 'completed' | 'referrals'>('posted');
   const [reviewingJobId, setReviewingJobId] = useState<number | null>(null);
+  const [rejectingAppId, setRejectingAppId] = useState<number | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string>('');
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // User's applied jobs
-  const myApplications = applications.filter(
+  // User's applied / worked jobs
+  const myCompletedTasks = applications.filter(
     a => a.user.toLowerCase() === currentUser.username.toLowerCase()
   );
 
-  // User's posted jobs
-  const myPostedJobs = jobs.filter(
+  // User's posted tasks
+  const myPostedTasks = jobs.filter(
     j => j.poster.toLowerCase() === currentUser.username.toLowerCase()
   );
 
@@ -57,6 +72,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const myReferrals = allUsers.filter(
     u => u.referredBy && u.referredBy.toUpperCase() === currentUser.refCode.toUpperCase()
   );
+
+  // Metrics for posted tasks
+  const totalEscrowHeld = myPostedTasks.reduce((sum, j) => {
+    if (j.status === 'Active' || j.status === 'Approved' || j.status === 'Pending Approval') {
+      const remainingSlots = Math.max(0, j.needed - j.done);
+      return sum + (j.pay * remainingSlots);
+    }
+    return sum;
+  }, 0);
+
+  const totalRewardsPaid = myPostedTasks.reduce((sum, j) => sum + (j.pay * j.done), 0);
+
+  // All submissions across user's posted tasks
+  const allSubmissionsForMyTasks = applications.filter(a => 
+    myPostedTasks.some(j => j.id === a.jobId)
+  );
+  const pendingSubmissionsCount = allSubmissionsForMyTasks.filter(a => a.status === 'Pending').length;
+
+  // Metrics for completed tasks (worker)
+  const approvedTasksCount = myCompletedTasks.filter(a => a.status === 'Approved').length;
+  const pendingTasksCount = myCompletedTasks.filter(a => a.status === 'Pending').length;
+  const rejectedTasksCount = myCompletedTasks.filter(a => a.status === 'Rejected').length;
+  const totalEarnedFromTasks = myCompletedTasks
+    .filter(a => a.status === 'Approved')
+    .reduce((sum, a) => sum + a.pay, 0);
 
   const baseUrl = typeof window !== 'undefined' 
     ? `${window.location.origin}${window.location.pathname}`.replace(/\/$/, '')
@@ -81,20 +121,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return applications.filter(a => a.jobId === jobId);
   };
 
+  const handleConfirmReject = (appId: number) => {
+    onRejectApplication(appId, rejectionReason || 'Proof does not meet task requirements.');
+    setRejectingAppId(null);
+    setRejectionReason('');
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-      {/* Top Welcome & Referral Banner */}
-      <div className="bg-indigo-700 text-white rounded-2xl p-6 sm:p-8 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-md">
+      {/* Top Welcome Banner */}
+      <div className="bg-gradient-to-r from-indigo-700 via-indigo-800 to-slate-900 text-white rounded-3xl p-6 sm:p-8 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-md border border-indigo-600/30">
         <div>
-          <span className="text-xs uppercase font-bold tracking-wider text-indigo-200">
-            Account Dashboard
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase font-bold tracking-wider text-indigo-300">
+              Task Dashboard & Control Center
+            </span>
+            <span className="text-[10px] bg-indigo-500/50 text-indigo-100 px-2 py-0.5 rounded-full font-mono">
+              @{currentUser.username}
+            </span>
+          </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mt-1">
-            Hello, {currentUser.name}!
+            Welcome, {currentUser.name}!
           </h1>
           <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-indigo-100">
-            <span>Referral Code:</span>
-            <span className="font-mono font-bold bg-indigo-900/60 px-2 py-0.5 rounded text-amber-300 select-all">
+            <span>Your Referral:</span>
+            <span className="font-mono font-bold bg-indigo-950/70 px-2.5 py-0.5 rounded-md text-amber-300 select-all border border-indigo-700/60">
               {currentUser.refCode}
             </span>
             <button
@@ -113,448 +164,750 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copiedLink ? 'Link Copied' : 'Copy Link'}</span>
             </button>
-            <span>· প্রতি রেফারে ৳5 বোনাস</span>
+            <span>· ৳5 per invite</span>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={onOpenPostJob}
-            className="px-4 py-2.5 bg-white text-indigo-700 hover:bg-indigo-50 font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+            className="px-4 py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
           >
             <PlusCircle className="w-4 h-4" />
-            Post New Task (৳10 Fee)
+            Post New Paid Task
           </button>
           <button
             onClick={() => onNavigate('wallet')}
-            className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
+            className="px-4 py-2.5 bg-white/15 hover:bg-white/25 text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
           >
-            Manage Wallet
+            Wallet (৳{currentUser.balance.toFixed(2)})
           </button>
         </div>
       </div>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-            Wallet Balance
-          </span>
-          <span className="text-2xl sm:text-3xl font-black text-emerald-600 font-mono tabular-nums mt-1 block">
-            ৳{currentUser.balance.toFixed(2)}
-          </span>
-        </div>
+      {/* Main Tabs Navigation */}
+      <div className="flex border-b border-slate-200 mb-8 overflow-x-auto gap-2">
+        <button
+          onClick={() => setActiveTab('posted')}
+          className={`py-3 px-4 font-bold text-sm border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 ${
+            activeTab === 'posted'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Briefcase className="w-4 h-4" />
+          <span>My Posted Tasks ({myPostedTasks.length})</span>
+          {pendingSubmissionsCount > 0 && (
+            <span className="px-2 py-0.5 bg-amber-500 text-slate-950 font-black text-[10px] rounded-full animate-pulse">
+              {pendingSubmissionsCount} to review
+            </span>
+          )}
+        </button>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-            Tasks Completed
-          </span>
-          <span className="text-2xl sm:text-3xl font-black text-slate-800 font-mono tabular-nums mt-1 block">
-            {myApplications.filter(a => a.status === 'Approved').length}
-          </span>
-        </div>
+        <button
+          onClick={() => setActiveTab('completed')}
+          className={`py-3 px-4 font-bold text-sm border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 ${
+            activeTab === 'completed'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <CheckCircle className="w-4 h-4" />
+          <span>My Completed Tasks ({myCompletedTasks.length})</span>
+        </button>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-            Total Earned
-          </span>
-          <span className="text-2xl sm:text-3xl font-black text-indigo-600 font-mono tabular-nums mt-1 block">
-            ৳{currentUser.earnings.toFixed(2)}
-          </span>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-            Jobs Posted
-          </span>
-          <span className="text-2xl sm:text-3xl font-black text-slate-800 font-mono tabular-nums mt-1 block">
-            {myPostedJobs.length}
-          </span>
-        </div>
+        <button
+          onClick={() => setActiveTab('referrals')}
+          className={`py-3 px-4 font-bold text-sm border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 ${
+            activeTab === 'referrals'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Referral Program ({myReferrals.length})</span>
+        </button>
       </div>
 
-      {/* Tabbed Content Box */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        {/* Tab Headers */}
-        <div className="flex border-b border-slate-200 px-6 pt-4 gap-6 bg-slate-50/50">
-          <button
-            onClick={() => setActiveTab('applied')}
-            className={`pb-4 text-sm font-bold transition-colors border-b-2 ${
-              activeTab === 'applied'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            My Applications ({myApplications.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('posted')}
-            className={`pb-4 text-sm font-bold transition-colors border-b-2 ${
-              activeTab === 'posted'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            My Posted Jobs ({myPostedJobs.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('referrals')}
-            className={`pb-4 text-sm font-bold transition-colors border-b-2 ${
-              activeTab === 'referrals'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            Referrals & Earn ৳5 ({myReferrals.length})
-          </button>
-        </div>
+      {/* SECTION 1: MY POSTED TASKS (EMPLOYER PERSPECTIVE) */}
+      {activeTab === 'posted' && (
+        <div className="space-y-6">
+          {/* Summary KPI Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Total Posted Tasks
+              </span>
+              <span className="text-2xl font-black text-slate-900 font-mono tabular-nums mt-1 block">
+                {myPostedTasks.length}
+              </span>
+              <span className="text-[11px] text-slate-400">Created by you</span>
+            </div>
 
-        {/* Tab 1: My Applications */}
-        {activeTab === 'applied' && (
-          <div className="p-6">
-            {myApplications.length === 0 ? (
-              <div className="text-center py-12">
-                <Briefcase className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                <p className="text-sm font-bold text-slate-700">No Task Applications Yet</p>
-                <p className="text-xs text-slate-400 mt-1 mb-4">
-                  Visit the marketplace to complete quick microjobs and earn BDT.
-                </p>
-                <button
-                  onClick={() => onNavigate('jobs')}
-                  className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl"
-                >
-                  Browse Available Tasks
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {myApplications.map(app => (
-                  <div
-                    key={app.id}
-                    className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-sm text-slate-900">{app.title}</span>
-                        <span className="text-xs text-slate-400">· Job #{app.jobId}</span>
-                      </div>
-                      <p className="text-xs text-slate-600 bg-white px-3 py-1.5 rounded-lg border border-slate-100 max-w-xl">
-                        <b>Proof Submitted:</b> {app.proof}
-                      </p>
-                      <span className="text-[10px] text-slate-400 block mt-1 font-mono">
-                        Submitted: {app.submittedAt}
-                      </span>
-                    </div>
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Pending Submissions
+              </span>
+              <span className="text-2xl font-black text-amber-600 font-mono tabular-nums mt-1 block">
+                {pendingSubmissionsCount}
+              </span>
+              <span className="text-[11px] text-amber-700">Awaiting your approval</span>
+            </div>
 
-                    <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center shrink-0">
-                      <span className="text-base font-black text-emerald-600 font-mono tabular-nums">
-                        ৳{app.pay.toFixed(2)}
-                      </span>
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          app.status === 'Approved'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : app.status === 'Pending'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-rose-100 text-rose-800'
-                        }`}
-                      >
-                        {app.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Total Escrow Reserved
+              </span>
+              <span className="text-2xl font-black text-indigo-600 font-mono tabular-nums mt-1 block">
+                ৳{totalEscrowHeld.toFixed(2)}
+              </span>
+              <span className="text-[11px] text-indigo-600">Held for worker payouts</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Total Rewards Paid
+              </span>
+              <span className="text-2xl font-black text-emerald-600 font-mono tabular-nums mt-1 block">
+                ৳{totalRewardsPaid.toFixed(2)}
+              </span>
+              <span className="text-[11px] text-emerald-700">Distributed to workers</span>
+            </div>
           </div>
-        )}
 
-        {/* Tab 2: My Posted Jobs */}
-        {activeTab === 'posted' && (
-          <div className="p-6">
-            {myPostedJobs.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                <p className="text-sm font-bold text-slate-700">You Haven't Posted Any Tasks</p>
-                <p className="text-xs text-slate-400 mt-1 mb-4">
-                  Need subscribers, app reviews, or survey respondents? Post your microjob.
-                </p>
-                <button
-                  onClick={onOpenPostJob}
-                  className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl"
-                >
-                  Create First Task (৳10 Fee)
-                </button>
+          {/* List of Posted Tasks */}
+          {myPostedTasks.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
+              <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto text-2xl">
+                💼
               </div>
-            ) : (
-              <div className="space-y-4">
-                {myPostedJobs.map(job => {
-                  const submissions = getSubmissionsForJob(job.id);
-                  const isReviewing = reviewingJobId === job.id;
+              <h3 className="text-lg font-bold text-slate-900">You haven't posted any tasks yet</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Need YouTube subscribers, social media follows, or reviews? Post a paid task with escrow reward and workers will complete it for you.
+              </p>
+              <button
+                onClick={onOpenPostJob}
+                className="mt-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors inline-flex items-center gap-2"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Post Your First Task
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {myPostedTasks.map(task => {
+                const submissions = getSubmissionsForJob(task.id);
+                const pendingSubs = submissions.filter(s => s.status === 'Pending');
+                const approvedSubs = submissions.filter(s => s.status === 'Approved');
+                const rejectedSubs = submissions.filter(s => s.status === 'Rejected');
+                const isReviewing = reviewingJobId === task.id;
+                const remainingSlots = Math.max(0, task.needed - task.done);
+                const unusedEscrow = task.pay * remainingSlots;
+                const pct = Math.min(100, Math.round((task.done / task.needed) * 100));
 
-                  return (
-                    <div
-                      key={job.id}
-                      className="p-5 rounded-xl border border-slate-200 bg-slate-50 space-y-3"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-semibold text-indigo-600">{job.category}</span>
-                            <span>·</span>
-                            <span className="text-xs text-slate-400 font-mono">Job #{job.id}</span>
-                            <span>·</span>
-                            <span
-                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                                job.status === 'Approved'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : job.status === 'Pending Approval'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-rose-100 text-rose-800'
-                              }`}
-                            >
-                              {job.status === 'Pending Approval' ? 'Pending Admin Review' : job.status}
-                            </span>
-                          </div>
-                          <h4 className="text-base font-bold text-slate-900">{job.title}</h4>
-                        </div>
-
-                        <div className="text-right">
-                          <span className="text-sm font-bold text-slate-800">
-                            Completed: {job.done} / {job.needed}
+                return (
+                  <div
+                    key={task.id}
+                    className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4"
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">
+                            {task.category}
                           </span>
-                          <span className="text-xs text-slate-400 block font-mono">
-                            Worker Pay: ৳{job.pay.toFixed(2)}
+                          <span className="text-slate-400 font-mono">Task #{task.id}</span>
+                          <span className="text-slate-400">· {task.createdAt}</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            task.status === 'Active' || task.status === 'Approved'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : task.status === 'Completed'
+                              ? 'bg-blue-100 text-blue-800'
+                              : task.status === 'Cancelled'
+                              ? 'bg-slate-200 text-slate-700'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {task.status}
+                          </span>
+                        </div>
+                        <h3 className="text-base font-extrabold text-slate-900">{task.title}</h3>
+                        <p className="text-xs text-slate-500 line-clamp-2">{task.inst}</p>
+                      </div>
+
+                      {/* Escrow & Slots Stats */}
+                      <div className="flex items-center gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200 shrink-0 text-xs">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block">Reward</span>
+                          <span className="font-mono font-black text-emerald-600 text-base">
+                            ৳{task.pay.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="border-l border-slate-200 pl-4">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block">Slots</span>
+                          <span className="font-mono font-bold text-slate-800 text-sm">
+                            {task.done} / {task.needed}
+                          </span>
+                        </div>
+                        <div className="border-l border-slate-200 pl-4">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block">Total Budget</span>
+                          <span className="font-mono font-bold text-indigo-700 text-sm">
+                            ৳{(task.pay * task.needed).toFixed(2)}
                           </span>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Pending approval notice */}
-                      {job.status === 'Pending Approval' && (
-                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-xs flex items-center gap-2">
-                          <Clock className="w-4 h-4 shrink-0 text-amber-600" />
-                          <span>
-                            This task is currently in the <strong>Admin Job Approval</strong> queue. Once approved, it will be published to the public marketplace.
-                          </span>
+                    {/* Progress Bar & Submissions Counters */}
+                    <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                      <div className="flex justify-between text-xs text-slate-500 font-medium">
+                        <span>Progress: {task.done} of {task.needed} completed ({pct}%)</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-amber-600 font-bold">{pendingSubs.length} Pending</span>
+                          <span className="text-emerald-600 font-bold">{approvedSubs.length} Approved</span>
+                          <span className="text-rose-600 font-bold">{rejectedSubs.length} Rejected</span>
                         </div>
-                      )}
+                      </div>
+                      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-emerald-500 to-indigo-600 transition-all duration-300"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
 
-                      {/* Rejection notice */}
-                      {job.status === 'Rejected' && (
-                        <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-900 text-xs flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                          <span>
-                            Rejected by Admin: {job.rejectionReason || 'Violated platform submission rules.'}
-                          </span>
-                        </div>
-                      )}
+                    {/* Action Bar */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                      <span className="text-xs text-slate-500">
+                        {remainingSlots} slots remaining · ৳{unusedEscrow.toFixed(2)} in reserved escrow
+                      </span>
 
-                      {/* Submissions review toggle button & Delete action */}
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-200 gap-2">
-                        <span className="text-xs text-slate-500">
-                          {submissions.length} worker proofs submitted
-                        </span>
-                        <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Cancel & Refund Unused Escrow */}
+                        {(task.status === 'Active' || task.status === 'Approved') && remainingSlots > 0 && onCancelJob && (
                           <button
                             type="button"
                             onClick={() => {
-                              if (window.confirm(`Are you sure you want to delete "${job.title}"? This cannot be undone.`)) {
-                                onDeleteJob(job.id);
+                              if (window.confirm(`Cancel this task and refund ৳${unusedEscrow.toFixed(2)} unused escrow to your available wallet balance?`)) {
+                                onCancelJob(task.id);
                               }
                             }}
-                            className="px-2.5 py-1.5 text-rose-600 hover:bg-rose-50 border border-rose-200 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
-                            title="Delete this task"
+                            className="px-3 py-1.5 text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
+                            title="Cancel and refund remaining escrow"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Delete
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Cancel & Refund ৳{unusedEscrow.toFixed(2)}</span>
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setReviewingJobId(isReviewing ? null : job.id)}
-                            className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
-                          >
-                            {isReviewing ? 'Hide Submissions' : 'Review Worker Proofs'}
-                          </button>
-                        </div>
+                        )}
+
+                        {/* Review Submissions Toggle */}
+                        <button
+                          type="button"
+                          onClick={() => setReviewingJobId(isReviewing ? null : task.id)}
+                          className={`px-4 py-2 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 ${
+                            isReviewing
+                              ? 'bg-slate-900 text-white'
+                              : pendingSubs.length > 0
+                              ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-xs'
+                              : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
+                          }`}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>
+                            {isReviewing
+                              ? 'Close Review'
+                              : `Review Submissions (${submissions.length})`}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`Delete Task #${task.id}: "${task.title}"?`)) {
+                              onDeleteJob(task.id);
+                            }
+                          }}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Delete Task"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
+                    </div>
 
-                      {/* Submissions List */}
-                      {isReviewing && (
-                        <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
-                          <h5 className="text-xs font-bold text-slate-700 uppercase">Worker Submissions:</h5>
-                          {submissions.length === 0 ? (
-                            <p className="text-xs text-slate-400 py-2">No proofs submitted for this task yet.</p>
-                          ) : (
-                            submissions.map(sub => (
-                              <div
-                                key={sub.id}
-                                className="p-3 bg-white rounded-lg border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                              >
-                                <div>
-                                  <div className="flex items-center gap-2 font-bold text-slate-800">
-                                    <span>Worker: @{sub.user}</span>
-                                    <span className="text-slate-400">· {sub.submittedAt}</span>
+                    {/* SUBMISSIONS REVIEW DRAWER */}
+                    {isReviewing && (
+                      <div className="mt-4 pt-4 border-t-2 border-indigo-100 space-y-4 bg-slate-50/70 p-4 rounded-xl">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                            <span>Worker Submissions ({submissions.length})</span>
+                          </h4>
+                          <span className="text-[11px] text-slate-500">
+                            Approve to credit ৳{task.pay.toFixed(2)} to worker, or Reject with explanation.
+                          </span>
+                        </div>
+
+                        {submissions.length === 0 ? (
+                          <div className="p-6 bg-white rounded-xl border border-slate-200 text-center text-slate-400 text-xs">
+                            No worker submissions received for this task yet.
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {submissions.map(sub => {
+                              const isApproved = sub.status === 'Approved';
+                              const isPending = sub.status === 'Pending';
+                              const isRejected = sub.status === 'Rejected';
+
+                              return (
+                                <div
+                                  key={sub.id}
+                                  className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3"
+                                >
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-xs">
+                                        {sub.user.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div>
+                                        <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                                          <span>{sub.workerName || sub.user}</span>
+                                          <span className="text-slate-400 font-mono text-[11px]">@{sub.user}</span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-400">
+                                          Submitted on: {sub.submittedAt} {sub.submittedTime || ''}
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                                        ৳{sub.pay.toFixed(2)}
+                                      </span>
+                                      <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold ${
+                                        isApproved
+                                          ? 'bg-emerald-100 text-emerald-800'
+                                          : isPending
+                                          ? 'bg-amber-100 text-amber-800 animate-pulse'
+                                          : 'bg-rose-100 text-rose-800'
+                                      }`}>
+                                        {sub.status}
+                                      </span>
+                                    </div>
                                   </div>
-                                  <p className="text-slate-600 mt-1 bg-slate-50 p-2 rounded">
-                                    {sub.proof}
-                                  </p>
-                                </div>
 
-                                <div className="flex items-center gap-2 shrink-0">
-                                  {sub.status === 'Pending' ? (
-                                    <>
-                                      <button
-                                        onClick={() => onRejectApplication(sub.id)}
-                                        className="px-3 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold rounded-lg border border-rose-200"
-                                      >
-                                        Reject
-                                      </button>
-                                      <button
-                                        onClick={() => onApproveApplication(sub.id)}
-                                        className="px-3 py-1 bg-emerald-600 text-white hover:bg-emerald-700 font-bold rounded-lg shadow-xs"
-                                      >
-                                        Approve & Pay ৳{sub.pay.toFixed(2)}
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <span
-                                      className={`px-2 py-0.5 rounded font-bold ${
-                                        sub.status === 'Approved' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                                      }`}
-                                    >
-                                      {sub.status}
+                                  {/* Proof Text */}
+                                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-xs">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                                      Worker Proof Submission:
                                     </span>
+                                    <p className="text-slate-800 leading-relaxed whitespace-pre-wrap font-sans">
+                                      {sub.proof}
+                                    </p>
+                                  </div>
+
+                                  {/* Attached Link or Screenshot */}
+                                  <div className="flex flex-wrap items-center gap-3 text-xs">
+                                    {sub.submittedLink && (
+                                      <a
+                                        href={sub.submittedLink}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-semibold bg-indigo-50 px-2.5 py-1 rounded-md"
+                                      >
+                                        <LinkIcon className="w-3.5 h-3.5" />
+                                        <span>View Submitted Link</span>
+                                        <ExternalLink className="w-3 h-3" />
+                                      </a>
+                                    )}
+
+                                    {sub.screenshot && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setPreviewImage(sub.screenshot || null)}
+                                        className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-semibold bg-emerald-50 px-2.5 py-1 rounded-md"
+                                      >
+                                        <ImageIcon className="w-3.5 h-3.5" />
+                                        <span>View Screenshot Proof</span>
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Rejection Note if Rejected */}
+                                  {isRejected && sub.rejectionReason && (
+                                    <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-start gap-2">
+                                      <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+                                      <div>
+                                        <span className="font-bold block">Rejection Reason Provided:</span>
+                                        <span>{sub.rejectionReason}</span>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Rejection Drawer for this submission */}
+                                  {rejectingAppId === sub.id && (
+                                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-2 text-xs">
+                                      <label className="block font-bold text-rose-900">
+                                        Rejection Reason (Worker will be notified):
+                                      </label>
+                                      <div className="flex flex-wrap gap-1">
+                                        {[
+                                          'Proof is not valid',
+                                          'Did not subscribe / follow',
+                                          'Incorrect username / link',
+                                          'Duplicate / fake screenshot',
+                                        ].map(chip => (
+                                          <button
+                                            key={chip}
+                                            type="button"
+                                            onClick={() => setRejectionReason(chip)}
+                                            className="px-2 py-0.5 bg-white border border-rose-200 text-rose-800 rounded text-[10px] font-medium"
+                                          >
+                                            {chip}
+                                          </button>
+                                        ))}
+                                      </div>
+                                      <input
+                                        type="text"
+                                        value={rejectionReason}
+                                        onChange={e => setRejectionReason(e.target.value)}
+                                        placeholder="Explain reason clearly..."
+                                        className="w-full px-3 py-1.5 bg-white border border-rose-300 rounded-lg outline-none"
+                                      />
+                                      <div className="flex justify-end gap-2 pt-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => setRejectingAppId(null)}
+                                          className="px-3 py-1 text-slate-600 hover:bg-slate-200 rounded-lg"
+                                        >
+                                          Cancel
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleConfirmReject(sub.id)}
+                                          className="px-3 py-1 bg-rose-600 text-white font-bold rounded-lg hover:bg-rose-700"
+                                        >
+                                          Confirm Reject
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Action Buttons */}
+                                  {isPending && rejectingAppId !== sub.id && (
+                                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setRejectingAppId(sub.id);
+                                          setRejectionReason('Proof is not valid');
+                                        }}
+                                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl transition-colors"
+                                      >
+                                        Reject Submission
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => onApproveApplication(sub.id)}
+                                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                                      >
+                                        <Check className="w-3.5 h-3.5" />
+                                        <span>Approve & Release ৳{sub.pay.toFixed(2)}</span>
+                                      </button>
+                                    </div>
                                   )}
                                 </div>
-                              </div>
-                            ))
-                          )}
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SECTION 2: MY COMPLETED TASKS (WORKER PERSPECTIVE) */}
+      {activeTab === 'completed' && (
+        <div className="space-y-6">
+          {/* Worker KPI Summary */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Tasks Submitted
+              </span>
+              <span className="text-2xl font-black text-slate-900 font-mono tabular-nums mt-1 block">
+                {myCompletedTasks.length}
+              </span>
+              <span className="text-[11px] text-slate-400">Total proofs sent</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Approved & Paid
+              </span>
+              <span className="text-2xl font-black text-emerald-600 font-mono tabular-nums mt-1 block">
+                {approvedTasksCount}
+              </span>
+              <span className="text-[11px] text-emerald-700">Earnings credited</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Under Employer Review
+              </span>
+              <span className="text-2xl font-black text-amber-600 font-mono tabular-nums mt-1 block">
+                {pendingTasksCount}
+              </span>
+              <span className="text-[11px] text-amber-700">Awaiting verification</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                Total Earned from Tasks
+              </span>
+              <span className="text-2xl font-black text-indigo-600 font-mono tabular-nums mt-1 block">
+                ৳{totalEarnedFromTasks.toFixed(2)}
+              </span>
+              <span className="text-[11px] text-indigo-600">Added to available balance</span>
+            </div>
+          </div>
+
+          {/* List of Tasks Done */}
+          {myCompletedTasks.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl">
+                💰
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">No completed tasks yet</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Visit the Tasks / Earn Money section, choose an available task, follow simple steps, and earn cash rewards.
+              </p>
+              <button
+                onClick={() => onNavigate('jobs')}
+                className="mt-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors inline-flex items-center gap-2"
+              >
+                <Sparkles className="w-4 h-4" />
+                Browse Available Tasks & Earn
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {myCompletedTasks.map(sub => {
+                const isApproved = sub.status === 'Approved';
+                const isPending = sub.status === 'Pending';
+                const isRejected = sub.status === 'Rejected';
+
+                return (
+                  <div
+                    key={sub.id}
+                    className={`bg-white rounded-2xl border p-5 shadow-xs space-y-3 transition-all ${
+                      isApproved
+                        ? 'border-emerald-200 bg-emerald-50/20'
+                        : isPending
+                        ? 'border-amber-200 bg-amber-50/20'
+                        : 'border-rose-200 bg-rose-50/20'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                          <span className="font-mono">Task #{sub.jobId}</span>
+                          <span>·</span>
+                          <span>Submitted: {sub.submittedAt}</span>
                         </div>
+                        <h3 className="text-base font-extrabold text-slate-900 mt-0.5">{sub.title}</h3>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-emerald-600 text-base">
+                          ৳{sub.pay.toFixed(2)}
+                        </span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 ${
+                          isApproved
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : isPending
+                            ? 'bg-amber-100 text-amber-800 animate-pulse'
+                            : 'bg-rose-100 text-rose-800'
+                        }`}>
+                          {isApproved ? (
+                            <>
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              <span>Approved & Paid ✓</span>
+                            </>
+                          ) : isPending ? (
+                            <>
+                              <Clock className="w-3.5 h-3.5" />
+                              <span>Under Employer Review</span>
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>Rejected</span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Proof description */}
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                        Your Submitted Proof:
+                      </span>
+                      <p className="text-slate-800 leading-relaxed font-sans">{sub.proof}</p>
+                    </div>
+
+                    {/* Rejection box if rejected */}
+                    {isRejected && (
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-bold block text-rose-950">Employer Rejection Reason:</span>
+                            <p className="mt-0.5 text-rose-800">
+                              {sub.rejectionReason || 'Proof did not meet task verification standards.'}
+                            </p>
+                          </div>
+                        </div>
+                        {onOpenDispute && (
+                          <div className="pt-1 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const parentJob = jobs.find(j => j.id === sub.jobId);
+                                onOpenDispute(parentJob, sub);
+                              }}
+                              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs transition-colors flex items-center gap-1.5 shadow-xs"
+                            >
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              <span>Dispute Rejection / Report to Admin</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Proof Link or Screenshot preview button */}
+                    <div className="flex flex-wrap items-center gap-3 text-xs pt-1">
+                      {sub.submittedLink && (
+                        <a
+                          href={sub.submittedLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-semibold"
+                        >
+                          <LinkIcon className="w-3.5 h-3.5" />
+                          <span>Submitted Link</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+
+                      {sub.screenshot && (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewImage(sub.screenshot || null)}
+                          className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-semibold"
+                        >
+                          <ImageIcon className="w-3.5 h-3.5" />
+                          <span>View Submitted Screenshot</span>
+                        </button>
                       )}
                     </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SECTION 3: REFERRAL PROGRAM */}
+      {activeTab === 'referrals' && (
+        <div className="space-y-6">
+          <div className="bg-gradient-to-r from-amber-500/15 via-indigo-50 to-emerald-50 rounded-2xl p-6 border border-amber-200">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <span className="text-xs uppercase font-bold text-amber-800">Refer & Earn Real Cash</span>
+                <h3 className="text-xl font-extrabold text-slate-900 mt-1">
+                  Earn ৳5.00 for Every Single User You Invite!
+                </h3>
+                <p className="text-xs text-slate-600 mt-1 max-w-xl">
+                  Share your referral link with friends on Facebook, Telegram, WhatsApp, or YouTube. When they register, you receive ৳5 instant wallet bonus.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={handleCopyRefLink}
+                  className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Copy className="w-4 h-4" />
+                  <span>{copiedLink ? 'Link Copied!' : 'Copy Referral Link'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <h4 className="text-sm font-bold text-slate-900 mb-3">
+              Referred Users ({myReferrals.length})
+            </h4>
+            {myReferrals.length === 0 ? (
+              <div className="text-center py-8 text-slate-400 text-xs">
+                No users have signed up with your code yet. Share your link to start earning!
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold">
+                    <tr>
+                      <th className="p-3">User</th>
+                      <th className="p-3">Joined Date</th>
+                      <th className="p-3">Reward Earned</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {myReferrals.map(ref => (
+                      <tr key={ref.username} className="hover:bg-slate-50">
+                        <td className="p-3 font-bold text-slate-800">
+                          {ref.name} <span className="font-mono text-slate-400 font-normal">(@{ref.username})</span>
+                        </td>
+                        <td className="p-3 text-slate-500">{ref.joinedAt}</td>
+                        <td className="p-3 font-mono font-bold text-emerald-600">+৳5.00</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Tab 3: Referral Program & Earnings */}
-        {activeTab === 'referrals' && (
-          <div className="p-6 space-y-6">
-            {/* Promo Banner */}
-            <div className="bg-gradient-to-r from-amber-500/15 via-indigo-50 to-emerald-50 rounded-2xl p-6 border border-amber-200">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-900 font-bold text-xs mb-2">
-                    <span>🎁</span>
-                    <span>৳5.00 প্রতি সফল রেফারেল বোনাস</span>
-                  </div>
-                  <h3 className="text-xl font-extrabold text-slate-900">
-                    Invite Friends & Earn Real BDT!
-                  </h3>
-                  <p className="text-xs text-slate-600 mt-1 max-w-xl leading-relaxed">
-                    আপনার ইউনিক Referral Link বা Code দিয়ে নতুন ইউজারদের ইনভাইট করুন। তারা সফলভাবে অ্যাকাউন্ট তৈরি করলেই আপনি পাবেন ৳5.00 যা সাথে সাথে আপনার ওয়ালেটে যোগ হবে।
-                  </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-                  <button
-                    onClick={handleCopyRefCode}
-                    className="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    {copiedCode ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                    <span>{copiedCode ? 'Code Copied!' : `Copy Code (${currentUser.refCode})`}</span>
-                  </button>
-                  <button
-                    onClick={handleCopyRefLink}
-                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    {copiedLink ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
-                    <span>{copiedLink ? 'Link Copied!' : 'Copy Referral Link'}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Referral Stats Summary */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Total Referred Users
-                </span>
-                <span className="text-2xl font-black text-slate-900 font-mono tabular-nums mt-1 block">
-                  {myReferrals.length} জন
-                </span>
-              </div>
-              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
-                <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">
-                  Referral Earnings Added
-                </span>
-                <span className="text-2xl font-black text-emerald-700 font-mono tabular-nums mt-1 block">
-                  ৳{(myReferrals.length * 5).toFixed(2)}
-                </span>
-              </div>
-              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-center">
-                <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">
-                  Reward Per User
-                </span>
-                <span className="text-2xl font-black text-amber-700 font-mono tabular-nums mt-1 block">
-                  ৳5.00
-                </span>
-              </div>
-            </div>
-
-            {/* List of Invited Users */}
-            <div>
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">
-                Invited Friends ({myReferrals.length})
-              </h4>
-
-              {myReferrals.length === 0 ? (
-                <div className="p-8 bg-slate-50 rounded-xl border border-slate-200 text-center text-slate-400 text-xs">
-                  আপনি এখনও কোনো ফ্রেন্ডকে ইনভাইট করেননি। আপনার Referral Link শেয়ার করুন এবং প্রতি রেফারে ৳5 ইনকাম করুন!
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold">
-                      <tr>
-                        <th className="p-3">User</th>
-                        <th className="p-3">Joined Date</th>
-                        <th className="p-3">Reward Status</th>
-                        <th className="p-3 text-right">Bonus Credited</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {myReferrals.map(refUser => (
-                        <tr key={refUser.username} className="hover:bg-slate-50">
-                          <td className="p-3 font-bold text-slate-800 flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-[10px]">
-                              {refUser.username.slice(0, 1).toUpperCase()}
-                            </span>
-                            <span>@{refUser.username}</span>
-                          </td>
-                          <td className="p-3 text-slate-500 font-mono">{refUser.joinedAt}</td>
-                          <td className="p-3">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                              <Check className="w-3 h-3" />
-                              <span>Verified Eligible</span>
-                            </span>
-                          </td>
-                          <td className="p-3 text-right font-mono font-bold text-emerald-600">
-                            +৳5.00
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+      {/* Lightbox / Modal for Screenshot Previews */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-3xl max-h-[90vh] bg-white rounded-2xl overflow-hidden p-2">
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-4 right-4 bg-slate-900/80 hover:bg-slate-900 text-white p-1.5 rounded-full z-10 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img
+              src={previewImage}
+              alt="Screenshot Preview"
+              className="w-full h-auto max-h-[85vh] object-contain rounded-xl"
+            />
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

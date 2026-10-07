@@ -1,5 +1,15 @@
-import React, { useState } from 'react';
-import { Job, User, WithdrawalRequest, SupportTicket, Application, DepositRequest } from '../types';
+import React, { useState, useMemo } from 'react';
+import { 
+  Job, 
+  User, 
+  WithdrawalRequest, 
+  SupportTicket, 
+  Application, 
+  DepositRequest, 
+  Dispute, 
+  ActivityLog, 
+  Transaction 
+} from '../types';
 import { 
   ShieldCheck, 
   Check, 
@@ -17,7 +27,17 @@ import {
   Gift, 
   UserCheck, 
   Activity,
-  ArrowDownLeft
+  ArrowDownLeft,
+  Search,
+  Download,
+  Upload,
+  ShieldAlert,
+  Wrench,
+  Server,
+  BarChart3,
+  Filter,
+  AlertTriangle,
+  RotateCcw
 } from 'lucide-react';
 
 interface AdminViewProps {
@@ -27,7 +47,12 @@ interface AdminViewProps {
   deposits: DepositRequest[];
   withdrawals: WithdrawalRequest[];
   tickets: SupportTicket[];
+  disputes?: Dispute[];
+  activityLogs?: ActivityLog[];
+  transactions?: Transaction[];
   depositNumber: string;
+  maintenanceMode?: boolean;
+  maintenanceMessage?: string;
   onApproveJob: (jobId: number) => void;
   onRejectJob: (jobId: number, reason: string) => void;
   onDeleteJob: (jobId: number) => void;
@@ -38,6 +63,10 @@ interface AdminViewProps {
   onToggleUserBan: (username: string) => void;
   onReplyTicket: (id: number, reply: string) => void;
   onUpdateDepositNumber: (newNumber: string) => void;
+  onResolveDispute?: (id: string, resolution: any, note: string) => void;
+  onToggleMaintenance?: (enabled: boolean, message?: string) => void;
+  onExportBackup?: () => void;
+  onImportBackup?: (data: any) => void;
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({
@@ -47,7 +76,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
   deposits,
   withdrawals,
   tickets,
+  disputes = [],
+  activityLogs = [],
+  transactions = [],
   depositNumber,
+  maintenanceMode = false,
+  maintenanceMessage = 'Website is undergoing scheduled maintenance.',
   onApproveJob,
   onRejectJob,
   onDeleteJob,
@@ -58,8 +92,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onToggleUserBan,
   onReplyTicket,
   onUpdateDepositNumber,
+  onResolveDispute,
+  onToggleMaintenance,
+  onExportBackup,
+  onImportBackup,
 }) => {
-  const [activeTab, setActiveTab] = useState<'jobs' | 'deposits' | 'withdrawals' | 'users' | 'tickets' | 'settings'>('jobs');
+  const [activeTab, setActiveTab] = useState<
+    'jobs' | 'deposits' | 'withdrawals' | 'users' | 'financial' | 'disputes' | 'activity' | 'tickets' | 'settings' | 'system'
+  >('jobs');
   const [rejectingJobId, setRejectingJobId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [rejectingDepositId, setRejectingDepositId] = useState<number | null>(null);
@@ -71,6 +111,23 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [newDepositNumber, setNewDepositNumber] = useState(depositNumber);
   const [selectedUserForActivity, setSelectedUserForActivity] = useState<User | null>(null);
   const [copiedValue, setCopiedValue] = useState<string | null>(null);
+
+  // Search & Filter States
+  const [jobSearch, setJobSearch] = useState('');
+  const [depositSearch, setDepositSearch] = useState('');
+  const [withdrawSearch, setWithdrawSearch] = useState('');
+  const [userSearch, setUserSearch] = useState('');
+  const [txSearch, setTxSearch] = useState('');
+  const [txTypeFilter, setTxTypeFilter] = useState('ALL');
+  const [disputeSearch, setDisputeSearch] = useState('');
+  const [activitySearch, setActivitySearch] = useState('');
+  const [activityCategoryFilter, setActivityCategoryFilter] = useState('ALL');
+
+  // Maintenance form state
+  const [maintEnabled, setMaintEnabled] = useState(maintenanceMode);
+  const [maintText, setMaintText] = useState(maintenanceMessage);
+  const [resolvingDisputeId, setResolvingDisputeId] = useState<string | null>(null);
+  const [disputeResolveNote, setDisputeResolveNote] = useState('');
 
   const pendingJobs = jobs.filter(j => j.status === 'Pending Approval');
   const approvedJobs = jobs.filter(j => j.status === 'Approved');
@@ -144,7 +201,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
         <div className="flex flex-wrap gap-1.5 p-1.5 bg-slate-800 rounded-xl">
           <button
             onClick={() => setActiveTab('jobs')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
               activeTab === 'jobs' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
             }`}
           >
@@ -153,34 +210,61 @@ export const AdminView: React.FC<AdminViewProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('deposits')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
               activeTab === 'deposits' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
             }`}
           >
             <ArrowDownLeft className="w-3.5 h-3.5" />
-            Deposit Requests ({pendingDeposits.length})
+            Deposits ({pendingDeposits.length})
           </button>
           <button
             onClick={() => setActiveTab('withdrawals')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
               activeTab === 'withdrawals' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
             }`}
           >
             <DollarSign className="w-3.5 h-3.5" />
-            Withdraw Requests ({pendingWithdrawals.length})
+            Withdrawals ({pendingWithdrawals.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('financial')}
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+              activeTab === 'financial' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            Financial Dashboard
+          </button>
+          <button
+            onClick={() => setActiveTab('disputes')}
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+              activeTab === 'disputes' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            Disputes ({disputes.filter(d => d.status === 'Open').length})
           </button>
           <button
             onClick={() => setActiveTab('users')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
               activeTab === 'users' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            Users & Activity ({users.length})
+            Users & Ban ({users.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('activity')}
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+              activeTab === 'activity' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5" />
+            Activity Logs
           </button>
           <button
             onClick={() => setActiveTab('tickets')}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
               activeTab === 'tickets' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
             }`}
           >
@@ -192,12 +276,21 @@ export const AdminView: React.FC<AdminViewProps> = ({
               setNewDepositNumber(depositNumber);
               setActiveTab('settings');
             }}
-            className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
               activeTab === 'settings' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
             }`}
           >
             <Smartphone className="w-3.5 h-3.5" />
-            Deposit Number
+            Deposit Num
+          </button>
+          <button
+            onClick={() => setActiveTab('system')}
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+              activeTab === 'system' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Server className="w-3.5 h-3.5" />
+            System & Backup
           </button>
         </div>
       </div>
@@ -1425,7 +1518,568 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </div>
       )}
 
-      {/* 5. DEPOSIT NUMBER SETTINGS */}
+      {/* 6. FINANCIAL DASHBOARD & TRANSACTION AUDIT */}
+      {activeTab === 'financial' && (
+        <div className="space-y-6">
+          {/* Financial KPI Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-xs bg-emerald-50/20">
+              <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">
+                Total Deposits Verified
+              </span>
+              <span className="text-2xl sm:text-3xl font-black text-emerald-700 font-mono tabular-nums mt-1 block">
+                ৳{deposits.filter(d => d.status === 'Approved' || d.status === 'Completed').reduce((sum, d) => sum + d.amount, 0).toFixed(2)}
+              </span>
+              <span className="text-[11px] text-emerald-600">bKash / Nagad Approved</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-indigo-200 shadow-xs bg-indigo-50/20">
+              <span className="text-[11px] font-bold text-indigo-800 uppercase tracking-wider block">
+                Total Withdrawals Paid
+              </span>
+              <span className="text-2xl sm:text-3xl font-black text-indigo-700 font-mono tabular-nums mt-1 block">
+                ৳{withdrawals.filter(w => w.status === 'Paid' || w.status === 'Completed').reduce((sum, w) => sum + w.amount, 0).toFixed(2)}
+              </span>
+              <span className="text-[11px] text-indigo-600">Paid out to workers</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-amber-200 shadow-xs bg-amber-50/20">
+              <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">
+                Task Rewards Distributed
+              </span>
+              <span className="text-2xl sm:text-3xl font-black text-amber-700 font-mono tabular-nums mt-1 block">
+                ৳{transactions.filter(t => t.type === 'Task Reward').reduce((sum, t) => sum + t.amount, 0).toFixed(2)}
+              </span>
+              <span className="text-[11px] text-amber-600">Transferred via atomic escrow</span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Platform Revenue (Fees)
+              </span>
+              <span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono tabular-nums mt-1 block">
+                ৳{(jobs.length * 10).toFixed(2)}
+              </span>
+              <span className="text-[11px] text-slate-500">৳10 review fee per post</span>
+            </div>
+          </div>
+
+          {/* Secondary Financial Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 text-xs">
+              <span className="text-slate-400 block font-semibold mb-0.5">Total User Wallet Balances</span>
+              <span className="text-lg font-bold font-mono text-slate-900">
+                ৳{users.reduce((sum, u) => sum + (u.balance || 0), 0).toFixed(2)}
+              </span>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 text-xs">
+              <span className="text-slate-400 block font-semibold mb-0.5">Total Referral Bonuses Paid</span>
+              <span className="text-lg font-bold font-mono text-amber-600">
+                ৳{transactions.filter(t => t.type === 'Referral Bonus').reduce((sum, t) => sum + t.amount, 0).toFixed(2)}
+              </span>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 text-xs">
+              <span className="text-slate-400 block font-semibold mb-0.5">Total Escrow Refunds Paid</span>
+              <span className="text-lg font-bold font-mono text-indigo-600">
+                ৳{transactions.filter(t => t.type === 'Escrow Refund').reduce((sum, t) => sum + t.amount, 0).toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          {/* Transaction History Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">All System Transactions</h3>
+                <p className="text-xs text-slate-500">Atomic ledger records for all deposits, withdrawals, task rewards, and refunds.</p>
+              </div>
+
+              {/* Filters */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={txSearch}
+                    onChange={e => setTxSearch(e.target.value)}
+                    placeholder="Search by User or ID..."
+                    className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 w-44"
+                  />
+                </div>
+
+                <select
+                  value={txTypeFilter}
+                  onChange={e => setTxTypeFilter(e.target.value)}
+                  className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none font-medium text-slate-700"
+                >
+                  <option value="ALL">All Types</option>
+                  <option value="Task Payment">Task Payment</option>
+                  <option value="Task Reward">Task Reward</option>
+                  <option value="Deposit">Deposit</option>
+                  <option value="Withdrawal">Withdrawal</option>
+                  <option value="Escrow Refund">Escrow Refund</option>
+                  <option value="Referral Bonus">Referral Bonus</option>
+                  <option value="Job Posting Fee">Job Posting Fee</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+                  <tr>
+                    <th className="p-3">Tx ID</th>
+                    <th className="p-3">User</th>
+                    <th className="p-3">Type</th>
+                    <th className="p-3 text-right">Amount</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3">Details</th>
+                    <th className="p-3 text-right">Date & Time</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {transactions
+                    .filter(tx => {
+                      const matchSearch = !txSearch.trim() || 
+                        tx.user.toLowerCase().includes(txSearch.toLowerCase()) ||
+                        tx.id.toLowerCase().includes(txSearch.toLowerCase()) ||
+                        (tx.details && tx.details.toLowerCase().includes(txSearch.toLowerCase()));
+                      const matchType = txTypeFilter === 'ALL' || tx.type === txTypeFilter;
+                      return matchSearch && matchType;
+                    })
+                    .slice(0, 100)
+                    .map(tx => (
+                      <tr key={tx.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-mono font-bold text-slate-700">{tx.id}</td>
+                        <td className="p-3 font-semibold text-slate-900">@{tx.user}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded font-medium ${
+                            tx.type === 'Task Reward' ? 'bg-emerald-50 text-emerald-700' :
+                            tx.type === 'Task Payment' ? 'bg-amber-50 text-amber-700' :
+                            tx.type === 'Deposit' ? 'bg-indigo-50 text-indigo-700' :
+                            tx.type === 'Withdrawal' ? 'bg-rose-50 text-rose-700' :
+                            'bg-slate-100 text-slate-700'
+                          }`}>
+                            {tx.type}
+                          </span>
+                        </td>
+                        <td className={`p-3 text-right font-mono font-bold tabular-nums ${
+                          tx.amount >= 0 ? 'text-emerald-600' : 'text-slate-800'
+                        }`}>
+                          {tx.amount >= 0 ? `+৳${tx.amount.toFixed(2)}` : `-৳${Math.abs(tx.amount).toFixed(2)}`}
+                        </td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            tx.status === 'Success' || tx.status === 'Completed' ? 'bg-emerald-100 text-emerald-800' :
+                            tx.status === 'Pending' ? 'bg-amber-100 text-amber-800' :
+                            'bg-rose-100 text-rose-800'
+                          }`}>
+                            {tx.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-600 max-w-xs truncate" title={tx.details}>
+                          {tx.details || '—'}
+                        </td>
+                        <td className="p-3 text-right font-mono text-slate-400">
+                          {tx.date} {tx.time && `· ${tx.time}`}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. TASK DISPUTE & MEDIATION CENTER */}
+      {activeTab === 'disputes' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-rose-600" />
+                <span>Task Dispute & Fraud Investigation Center</span>
+              </h2>
+              <p className="text-xs text-slate-500">
+                Grievances filed by Workers against Employers (or vice versa). Inspect proof and issue payouts or escrow refunds.
+              </p>
+            </div>
+
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={disputeSearch}
+                onChange={e => setDisputeSearch(e.target.value)}
+                placeholder="Search disputes..."
+                className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 w-52"
+              />
+            </div>
+          </div>
+
+          {disputes.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400 text-xs">
+              <Check className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+              <p className="font-semibold text-slate-700">No Task Disputes</p>
+              <p className="mt-0.5 text-slate-400">All task approvals and worker submissions are functioning smoothly.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {disputes
+                .filter(d => 
+                  !disputeSearch.trim() ||
+                  d.reporter.toLowerCase().includes(disputeSearch.toLowerCase()) ||
+                  d.reportedUser.toLowerCase().includes(disputeSearch.toLowerCase()) ||
+                  d.taskTitle.toLowerCase().includes(disputeSearch.toLowerCase()) ||
+                  d.reason.toLowerCase().includes(disputeSearch.toLowerCase())
+                )
+                .map(d => {
+                  const isOpen = d.status === 'Open';
+
+                  return (
+                    <div key={d.id} className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+                            <span className="font-mono font-bold text-slate-800">#{d.id}</span>
+                            <span>·</span>
+                            <span>Task #{d.taskId}: <b>{d.taskTitle}</b></span>
+                            <span>·</span>
+                            <span>Filed: {d.createdAt}</span>
+                          </div>
+                          <h3 className="text-base font-bold text-slate-900">{d.reason}</h3>
+                        </div>
+
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                          isOpen ? 'bg-rose-100 text-rose-800 animate-pulse' :
+                          d.status.includes('Paid') ? 'bg-emerald-100 text-emerald-800' :
+                          d.status.includes('Refunded') ? 'bg-indigo-100 text-indigo-800' :
+                          'bg-slate-100 text-slate-700'
+                        }`}>
+                          {d.status}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block">Reporter</span>
+                          <span className="font-bold text-slate-900">@{d.reporter}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase block">Reported User</span>
+                          <span className="font-bold text-rose-700">@{d.reportedUser}</span>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 bg-white rounded-xl border border-slate-200 text-xs text-slate-800">
+                        <span className="font-bold text-slate-500 uppercase block text-[10px] mb-1">Dispute Statement</span>
+                        <p className="leading-relaxed">{d.details}</p>
+                      </div>
+
+                      {d.proofAttachment && (
+                        <div className="text-xs">
+                          <span className="font-bold text-slate-500 uppercase block text-[10px] mb-1">Evidence URL</span>
+                          <a href={d.proofAttachment} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline break-all">
+                            {d.proofAttachment}
+                          </a>
+                        </div>
+                      )}
+
+                      {d.resolutionNote && (
+                        <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs text-indigo-900">
+                          <span className="font-bold block mb-0.5">Admin Resolution Note:</span>
+                          <p>{d.resolutionNote}</p>
+                        </div>
+                      )}
+
+                      {/* Admin Resolution Drawer */}
+                      {isOpen && (
+                        <div className="pt-3 border-t border-slate-100 space-y-3">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={resolvingDisputeId === d.id ? disputeResolveNote : ''}
+                              onChange={e => {
+                                setResolvingDisputeId(d.id);
+                                setDisputeResolveNote(e.target.value);
+                              }}
+                              placeholder="Add resolution explanation or warning..."
+                              className="flex-1 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onResolveDispute) {
+                                  onResolveDispute(d.id, 'Dismissed', disputeResolveNote || 'Dispute reviewed and dismissed as unsubstantiated.');
+                                }
+                              }}
+                              className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                            >
+                              Dismiss Dispute
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onResolveDispute) {
+                                  onResolveDispute(d.id, 'Resolved - Owner Refunded', disputeResolveNote || 'Evidence confirmed task cancellation or fake worker proof. Owner refunded.');
+                                }
+                              }}
+                              className="px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-colors"
+                            >
+                              Refund Owner
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onResolveDispute) {
+                                  onResolveDispute(d.id, 'Resolved - Worker Paid', disputeResolveNote || 'Worker proof verified as fully compliant with instructions. Worker rewarded.');
+                                }
+                              }}
+                              className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-colors"
+                            >
+                              Pay Worker (Override)
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 8. AUDIT ACTIVITY LOGS */}
+      {activeTab === 'activity' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-indigo-600" />
+                <span>Live User Activity & Security Audit Logs</span>
+              </h2>
+              <p className="text-xs text-slate-500">
+                Track when users register, post tasks, submit proofs, approve payouts, deposit, or withdraw.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={activitySearch}
+                  onChange={e => setActivitySearch(e.target.value)}
+                  placeholder="Filter logs..."
+                  className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 w-44"
+                />
+              </div>
+
+              <select
+                value={activityCategoryFilter}
+                onChange={e => setActivityCategoryFilter(e.target.value)}
+                className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs outline-none font-medium text-slate-700"
+              >
+                <option value="ALL">All Categories</option>
+                <option value="finance">Finance & Wallet</option>
+                <option value="task">Tasks & Submissions</option>
+                <option value="auth">Auth & Registration</option>
+                <option value="dispute">Disputes</option>
+                <option value="admin">Admin Actions</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            {activityLogs.length === 0 ? (
+              <p className="text-center py-8 text-xs text-slate-400">No activity logs recorded yet.</p>
+            ) : (
+              <div className="space-y-2.5">
+                {activityLogs
+                  .filter(log => {
+                    const matchSearch = !activitySearch.trim() ||
+                      log.user.toLowerCase().includes(activitySearch.toLowerCase()) ||
+                      log.action.toLowerCase().includes(activitySearch.toLowerCase()) ||
+                      log.details.toLowerCase().includes(activitySearch.toLowerCase());
+                    const matchCategory = activityCategoryFilter === 'ALL' || log.category === activityCategoryFilter;
+                    return matchSearch && matchCategory;
+                  })
+                  .slice(0, 150)
+                  .map(log => (
+                    <div key={log.id} className="p-3 bg-slate-50 hover:bg-slate-100/70 rounded-xl border border-slate-100 flex items-start justify-between gap-3 text-xs transition-colors">
+                      <div className="flex items-start gap-2.5">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold shrink-0 mt-0.5 ${
+                          log.category === 'finance' ? 'bg-emerald-100 text-emerald-800' :
+                          log.category === 'task' ? 'bg-amber-100 text-amber-800' :
+                          log.category === 'admin' ? 'bg-rose-100 text-rose-800' :
+                          log.category === 'dispute' ? 'bg-violet-100 text-violet-800' :
+                          'bg-indigo-100 text-indigo-800'
+                        }`}>
+                          {log.action}
+                        </span>
+                        <div>
+                          <span className="font-bold text-slate-900 mr-2">@{log.user}</span>
+                          <span className="text-slate-700">{log.details}</span>
+                        </div>
+                      </div>
+                      <span className="font-mono text-[10px] text-slate-400 shrink-0 whitespace-nowrap">
+                        {log.timestamp}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 9. SYSTEM, MAINTENANCE & BACKUP */}
+      {activeTab === 'system' && (
+        <div className="space-y-6 max-w-4xl">
+          {/* Maintenance Mode Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs">
+            <div className="flex items-center gap-2 mb-2">
+              <Wrench className="w-5 h-5 text-amber-600" />
+              <h2 className="text-xl font-bold text-slate-900">Maintenance Mode Control</h2>
+            </div>
+            <p className="text-xs text-slate-500 mb-6">
+              When Maintenance Mode is enabled, regular visitors see an announcement screen while administrators maintain full access.
+            </p>
+
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-sm text-slate-900 block">Website Maintenance Switch</span>
+                  <span className="text-xs text-slate-500">
+                    {maintEnabled ? 'Currently ACTIVE (Non-admins will see maintenance banner)' : 'Currently OFF (Website is public)'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMaintEnabled(!maintEnabled)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    maintEnabled ? 'bg-amber-500' : 'bg-slate-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      maintEnabled ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Custom Maintenance Announcement Message
+                </label>
+                <input
+                  type="text"
+                  value={maintText}
+                  onChange={e => setMaintText(e.target.value)}
+                  placeholder="e.g. Website is undergoing scheduled maintenance..."
+                  className="w-full px-3.5 py-2 text-xs bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                />
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onToggleMaintenance) {
+                      onToggleMaintenance(maintEnabled, maintText);
+                    }
+                  }}
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Apply Maintenance Settings</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Backup & Recovery Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs">
+            <div className="flex items-center gap-2 mb-2">
+              <Server className="w-5 h-5 text-indigo-600" />
+              <h2 className="text-xl font-bold text-slate-900">Database Backup & Recovery</h2>
+            </div>
+            <p className="text-xs text-slate-500 mb-6">
+              Export and download a complete JSON snapshot of all platform users, tasks, transactions, and deposits. Restore at any time.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Export Backup */}
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 mb-1 flex items-center gap-1.5">
+                    <Download className="w-4 h-4 text-emerald-600" />
+                    <span>Download Backup Snapshot</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mb-4">
+                    Creates an encrypted JSON backup file containing all user balances, pending proofs, and transactions.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onExportBackup) {
+                      onExportBackup();
+                    }
+                  }}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download .JSON Backup</span>
+                </button>
+              </div>
+
+              {/* Restore Backup */}
+              <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 mb-1 flex items-center gap-1.5">
+                    <Upload className="w-4 h-4 text-indigo-600" />
+                    <span>Restore from Backup File</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mb-4">
+                    Upload a previously downloaded JSON backup to restore application data.
+                  </p>
+                </div>
+                <label className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                  <Upload className="w-4 h-4" />
+                  <span>Select Backup File to Restore</span>
+                  <input
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file && onImportBackup) {
+                        const reader = new FileReader();
+                        reader.onload = evt => {
+                          try {
+                            const parsed = JSON.parse(evt.target?.result as string);
+                            onImportBackup(parsed);
+                          } catch {
+                            alert('Invalid JSON backup file.');
+                          }
+                        };
+                        reader.readAsText(file);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {activeTab === 'settings' && (
         <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 max-w-2xl">
           <div className="flex items-center gap-2 mb-1">

@@ -14,20 +14,28 @@ export interface User {
   isAdmin: boolean;
   isBanned?: boolean;
   joinedAt: string;
+  lastActive?: string;
+  currentSection?: string;
 }
 
-export type JobStatus = 'Pending Approval' | 'Approved' | 'Rejected' | 'Completed';
+export type JobStatus = 'Draft' | 'Pending Approval' | 'Active' | 'Approved' | 'Paused' | 'Completed' | 'Expired' | 'Cancelled' | 'Rejected';
 
 export interface Job {
   id: number;
   poster: string;
   posterName?: string;
   title: string;
+  description?: string;
   category: string;
   pay: number;
   needed: number;
   done: number;
   inst: string;
+  requiredProof?: string;
+  deadline?: string;
+  imageUrl?: string;
+  totalBudget?: number;
+  spentBudget?: number;
   status: JobStatus;
   rejectionReason?: string;
   createdAt: string;
@@ -38,21 +46,47 @@ export interface Application {
   jobId: number;
   title: string;
   user: string;
+  workerName?: string;
+  workerId?: string | number;
   pay: number;
   status: 'Pending' | 'Approved' | 'Rejected';
   proof: string;
+  screenshot?: string;
+  submittedLink?: string;
   submittedAt: string;
-  feedback?: string;
+  submittedTime?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
 }
+
+export type TransactionType = 
+  | 'Task Payment'
+  | 'Task Reward' 
+  | 'Task Budget Reserve' 
+  | 'Task Budget Refund' 
+  | 'Job Posting Fee' 
+  | 'Deposit' 
+  | 'Withdrawal' 
+  | 'Referral Bonus' 
+  | 'Admin Adjustment' 
+  | 'Signup Bonus' 
+  | 'Escrow Refund' 
+  | 'Job Payout';
 
 export interface Transaction {
   id: string;
+  userId?: string | number;
   user: string;
-  type: 'Signup Bonus' | 'Referral Bonus' | 'Job Posting Fee' | 'Job Escrow Budget' | 'Job Payout' | 'Deposit' | 'Withdrawal' | 'Escrow Refund';
+  type: TransactionType;
   amount: number;
-  status: 'Success' | 'Pending' | 'Rejected';
+  direction?: 'in' | 'out';
+  taskId?: string | number;
+  submissionId?: string | number;
+  status: 'Success' | 'Pending' | 'Rejected' | 'Completed';
   date: string;
+  time?: string;
   details?: string;
+  description?: string;
 }
 
 export interface Message {
@@ -62,6 +96,7 @@ export interface Message {
   jobId?: number;
   jobTitle?: string;
   text: string;
+  imageUrl?: string;
   timestamp: string;
   isRead: boolean;
 }
@@ -109,6 +144,31 @@ export interface SupportTicket {
   createdAt: string;
 }
 
+export interface Dispute {
+  id: string;
+  taskId: number;
+  taskTitle: string;
+  submissionId?: number;
+  reporter: string;
+  reportedUser: string;
+  reason: string;
+  details: string;
+  proofAttachment?: string;
+  status: 'Open' | 'Resolved - Worker Paid' | 'Resolved - Owner Refunded' | 'Dismissed';
+  resolutionNote?: string;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  timestamp: string;
+  user: string;
+  action: string;
+  details: string;
+  category: 'auth' | 'task' | 'finance' | 'admin' | 'dispute';
+}
+
 export interface AppState {
   user: User | null;
   allUsers: User[];
@@ -118,6 +178,10 @@ export interface AppState {
   deposits: DepositRequest[];
   withdrawals: WithdrawalRequest[];
   tickets: SupportTicket[];
+  disputes: Dispute[];
+  activityLogs: ActivityLog[];
   messages: Message[];
   depositNumber: string;
+  maintenanceMode: boolean;
+  maintenanceMessage?: string;
 }

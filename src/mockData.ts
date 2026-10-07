@@ -93,8 +93,21 @@ export function getInitialState(): AppState {
           deposits: parsed.deposits || [],
           withdrawals: parsed.withdrawals || [],
           tickets: parsed.tickets || [],
+          disputes: parsed.disputes || [],
+          activityLogs: parsed.activityLogs || [
+            {
+              id: 'log_init_1',
+              timestamp: '2026-03-15 10:00 AM',
+              user: 'system',
+              action: 'SYSTEM_BOOT',
+              details: 'Secure Financial Engine initialized. Escrow protection active.',
+              category: 'admin',
+            }
+          ],
           messages: parsed.messages || [],
           depositNumber: parsed.depositNumber || DEFAULT_DEPOSIT_NUMBER,
+          maintenanceMode: !!parsed.maintenanceMode,
+          maintenanceMessage: parsed.maintenanceMessage || 'Website is undergoing scheduled maintenance. We will be back shortly!',
         };
       }
     }
@@ -111,8 +124,21 @@ export function getInitialState(): AppState {
     deposits: [],
     withdrawals: [],
     tickets: [],
+    disputes: [],
+    activityLogs: [
+      {
+        id: 'log_init_1',
+        timestamp: '2026-03-15 10:00 AM',
+        user: 'system',
+        action: 'SYSTEM_BOOT',
+        details: 'Secure Financial Engine initialized. Escrow protection active.',
+        category: 'admin',
+      }
+    ],
     messages: [],
     depositNumber: DEFAULT_DEPOSIT_NUMBER,
+    maintenanceMode: false,
+    maintenanceMessage: 'Website is undergoing scheduled maintenance. We will be back shortly!',
   };
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(initialState));
