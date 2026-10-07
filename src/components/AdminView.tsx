@@ -134,7 +134,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [disputeResolveNote, setDisputeResolveNote] = useState('');
 
   const pendingJobs = useMemo(() => {
-    return jobs.filter(j => j.status === 'Pending Approval' && !j.isDeleted);
+    return jobs.filter(
+      j => (j.status === 'Pending Approval' || j.status === 'Pending' || j.status === 'Draft') &&
+           !j.isDeleted && j.status !== 'Removed' && j.status !== 'Deleted'
+    );
   }, [jobs]);
 
   const approvedJobs = useMemo(() => {
