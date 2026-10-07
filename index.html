@@ -12,6 +12,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+      // Single-Page-App helper for GitHub Pages
+      (function() {
+        // Fix missing trailing slash on GitHub Pages root URL so relative assets resolve properly
+        if (window.location.pathname.length > 1 && !window.location.pathname.endsWith('/') && !window.location.pathname.includes('.')) {
+          window.location.replace(window.location.pathname + '/' + window.location.search + window.location.hash);
+        }
+      })();
+    </script>
   </head>
   <body class="h-full bg-slate-50 text-slate-800 antialiased">
     <div id="root" class="h-full"></div>

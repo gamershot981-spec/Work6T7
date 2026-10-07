@@ -7,8 +7,17 @@ import { defineConfig } from 'vite';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(() => {
+  // If deployed on GitHub Pages via Actions or repository name is provided
+  // GitHub Actions provides GITHUB_REPOSITORY (e.g. 'owner/repo')
+  const repoName = process.env.GITHUB_REPOSITORY
+    ? process.env.GITHUB_REPOSITORY.split('/')[1]
+    : '';
+
+  // Use repo subpath if on GitHub Actions (e.g. '/work-6t7/') or relative './' for standalone
+  const base = repoName ? `/${repoName}/` : './';
+
   return {
-    base: './',
+    base,
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

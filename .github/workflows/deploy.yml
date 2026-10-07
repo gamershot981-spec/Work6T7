@@ -32,13 +32,15 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
-
-      - name: Build project
-        run: npm run build
+        run: npm ci || npm install --legacy-peer-deps
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
+
+      - name: Build project
+        run: npm run build
+        env:
+          GITHUB_PAGES: 'true'
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
