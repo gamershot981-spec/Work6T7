@@ -2,7 +2,6 @@
   "allUsers": [
     {
       "username": "admin",
-      "password": "work6t7admin87358#45#$6@",
       "name": "Work 6T7 Admin",
       "email": "admin@work6t7.bd",
       "bio": "Platform Administrator & Quality Assurance",
@@ -13,7 +12,9 @@
       "isAdmin": true,
       "joinedAt": "2026-01-01",
       "phone": "",
-      "isBanned": false
+      "isBanned": false,
+      "passwordSalt": "9ac13da789e159f7200572836b18752b",
+      "passwordHash": "754963dc38e22f62e3b89bab02f1f85864da602b20bfab2169b09bdac88a8974c844defa1c96fa5a749e4178e5f9c67622e8fa2f6d1d86ced8e2524b0f4da283"
     },
     {
       "username": "abidhasan01",
@@ -44,56 +45,9 @@
       "joinedAt": "2026-10-07",
       "referredBy": "W6T7-ABIDHASAN01",
       "isBanned": false
-    },
-    {
-      "username": "newuser_1791367456622",
-      "password": "mySecretPassword123",
-      "name": "New User",
-      "email": "newuser_1791367456622@example.com",
-      "bio": "Ready to work on verified microjobs!",
-      "profilePhoto": "https://api.dicebear.com/7.x/avataaars/svg?seed=newuser_1791367456622",
-      "balance": 5,
-      "earnings": 0,
-      "refCode": "W6T7-NEWUSER_1791367456622",
-      "isAdmin": false,
-      "joinedAt": "2026-10-07"
     }
   ],
   "jobs": [
-    {
-      "id": 1791366089732,
-      "poster": "abidhasan01",
-      "posterName": "Abid",
-      "title": "sign in",
-      "description": "Do the work and get 5 taka",
-      "category": "Website Visit & Signup",
-      "pay": 5,
-      "needed": 10,
-      "done": 1,
-      "inst": "inbox us for do your work",
-      "requiredProof": "yes",
-      "deadline": "No Expiry",
-      "totalBudget": 50,
-      "spentBudget": 5,
-      "status": "Approved",
-      "createdAt": "2026-10-07",
-      "isDeleted": false,
-      "approvedAt": "2026-10-07T09:41:42.774Z",
-      "approvedBy": "admin"
-    },
-    {
-      "id": 1,
-      "poster": "admin",
-      "posterName": "Work 6T7 Admin",
-      "title": "Subscribe to YouTube Channel & Watch 1 Min",
-      "category": "YouTube",
-      "pay": 5,
-      "needed": 100,
-      "done": 42,
-      "inst": "1. Visit YouTube channel @Work6T7Official.\n2. Subscribe and watch the latest video for at least 60 seconds.\n3. Like the video.\n4. Submit your YouTube username and screenshot link as proof.",
-      "status": "Approved",
-      "createdAt": "2026-03-10"
-    },
     {
       "id": 2,
       "poster": "digitalagent",
@@ -186,16 +140,6 @@
     }
   ],
   "transactions": [
-    {
-      "id": "tx_1791367456712_bonus",
-      "user": "newuser_1791367456622",
-      "type": "Signup Bonus",
-      "amount": 5,
-      "direction": "in",
-      "status": "Success",
-      "date": "10/7/2026",
-      "details": "One-time registration bonus added to wallet"
-    },
     {
       "id": "tx_1791366313402_wd",
       "user": "testdada12",
@@ -573,44 +517,164 @@
   "disputes": [],
   "activityLogs": [
     {
-      "id": "act_1791367456742_c35z",
-      "timestamp": "10/7/2026, 10:04:16 AM",
-      "user": "newuser_1791367456622",
+      "id": "act_1791482756704_m3fz",
+      "timestamp": "10/8/2026, 6:05:56 PM",
+      "user": "owner_1791482756597",
       "action": "USER_LOGIN",
-      "details": "Logged into account @newuser_1791367456622",
+      "details": "Logged into account @owner_1791482756597",
       "category": "auth"
     },
     {
-      "id": "act_1791367456736_6xa6",
-      "timestamp": "10/7/2026, 10:04:16 AM",
-      "user": "newuser_1791367456622",
+      "id": "act_1791482756700_dedj",
+      "timestamp": "10/8/2026, 6:05:56 PM",
+      "user": "owner_1791482756597",
+      "action": "TASK_REMOVED",
+      "details": "Task #1791482756672 (\"Complete Survey & Submit ID\") removed by @owner_1791482756597. Previous status: Pending Approval. Reason: Cancelled remaining slots",
+      "category": "admin"
+    },
+    {
+      "id": "act_1791482756693_hhjq",
+      "timestamp": "10/8/2026, 6:05:56 PM",
+      "user": "worker_1791482756597",
       "action": "USER_LOGIN",
-      "details": "Logged into account @newuser_1791367456622",
+      "details": "Logged into account @worker_1791482756597",
       "category": "auth"
     },
     {
-      "id": "act_1791367456730_l3os",
-      "timestamp": "10/7/2026, 10:04:16 AM",
-      "user": "newuser_1791367456622",
+      "id": "act_1791482756691_w6lv",
+      "timestamp": "10/8/2026, 6:05:56 PM",
+      "user": "owner_1791482756597",
       "action": "USER_LOGIN",
-      "details": "Logged into account @newuser_1791367456622",
+      "details": "Logged into account @owner_1791482756597",
       "category": "auth"
     },
     {
-      "id": "act_1791367456725_lbyo",
-      "timestamp": "10/7/2026, 10:04:16 AM",
-      "user": "newuser_1791367456622",
+      "id": "act_1791482756686_zewv",
+      "timestamp": "10/8/2026, 6:05:56 PM",
+      "user": "owner_1791482756597",
+      "action": "TASK_APPROVED",
+      "details": "Approved submission #1791482756680 for Task #1791482756672. Transferred ৳15.00 from @owner_1791482756597 to @worker_1791482756597",
+      "category": "finance"
+    },
+    {
+      "id": "act_1791482756681_2xl1",
+      "timestamp": "10/8/2026, 6:05:56 PM",
+      "user": "worker_1791482756597",
+      "action": "PROOF_SUBMITTED",
+      "details": "Submitted proof for Task #1791482756672",
+      "category": "task"
+    },
+    {
+      "id": "act_1791482756677_awx0",
+      "timestamp": "10/8/2026, 6:05:56 PM",
+      "user": "owner_1791482756597",
       "action": "USER_LOGIN",
-      "details": "Logged into account @newuser_1791367456622",
+      "details": "Logged into account @owner_1791482756597",
       "category": "auth"
     },
     {
-      "id": "act_1791367456712_63k0",
-      "timestamp": "10/7/2026, 10:04:16 AM",
-      "user": "newuser_1791367456622",
+      "id": "act_1791482756673_85gd",
+      "timestamp": "10/8/2026, 6:05:56 PM",
+      "user": "owner_1791482756597",
+      "action": "TASK_POSTED",
+      "details": "Created new task \"Complete Survey & Submit ID\" (Escrow: ৳30, Fee: ৳10)",
+      "category": "task"
+    },
+    {
+      "id": "act_1791482756667_jsnh",
+      "timestamp": "10/8/2026, 6:05:56 PM",
+      "user": "owner_1791482756597",
+      "action": "USER_LOGIN",
+      "details": "Logged into account @owner_1791482756597",
+      "category": "auth"
+    },
+    {
+      "id": "act_1791482756663_27sm",
+      "timestamp": "10/8/2026, 6:05:56 PM",
+      "user": "admin",
+      "action": "DEPOSIT_APPROVED",
+      "details": "Approved deposit #1791482756657 (৳100, TrxID: TRX_1791482756597) for @owner_1791482756597",
+      "category": "finance"
+    },
+    {
+      "id": "act_1791482756657_micr",
+      "timestamp": "10/8/2026, 6:05:56 PM",
+      "user": "owner_1791482756597",
+      "action": "DEPOSIT_REQUEST",
+      "details": "Submitted deposit request ৳100 via bKash (TrxID: TRX_1791482756597)",
+      "category": "finance"
+    },
+    {
+      "id": "act_1791482756650_51b0",
+      "timestamp": "10/8/2026, 6:05:56 PM",
+      "user": "worker_1791482756597",
       "action": "USER_REGISTERED",
-      "details": "Registered new account @newuser_1791367456622. Granted ৳5 signup bonus.",
+      "details": "Registered new account @worker_1791482756597. Granted ৳5 signup bonus.",
       "category": "auth"
+    },
+    {
+      "id": "act_1791482756641_6xml",
+      "timestamp": "10/8/2026, 6:05:56 PM",
+      "user": "owner_1791482756597",
+      "action": "USER_REGISTERED",
+      "details": "Registered new account @owner_1791482756597. Granted ৳5 signup bonus.",
+      "category": "auth"
+    },
+    {
+      "id": "act_1791482717634_rc06",
+      "timestamp": "10/8/2026, 6:05:17 PM",
+      "user": "testo_1791482717609",
+      "action": "USER_REGISTERED",
+      "details": "Registered new account @testo_1791482717609. Granted ৳5 signup bonus.",
+      "category": "auth"
+    },
+    {
+      "id": "act_1791482710904_5wgu",
+      "timestamp": "10/8/2026, 6:05:10 PM",
+      "user": "worker_1791482710875",
+      "action": "USER_REGISTERED",
+      "details": "Registered new account @worker_1791482710875. Granted ৳5 signup bonus.",
+      "category": "auth"
+    },
+    {
+      "id": "act_1791482710895_m7pd",
+      "timestamp": "10/8/2026, 6:05:10 PM",
+      "user": "owner_1791482710875",
+      "action": "USER_REGISTERED",
+      "details": "Registered new account @owner_1791482710875. Granted ৳5 signup bonus.",
+      "category": "auth"
+    },
+    {
+      "id": "act_1791482693877_4bnv",
+      "timestamp": "10/8/2026, 6:04:53 PM",
+      "user": "admin",
+      "action": "USER_LOGIN",
+      "details": "Logged into account @admin",
+      "category": "auth"
+    },
+    {
+      "id": "act_1791482693739_5zlz",
+      "timestamp": "10/8/2026, 6:04:53 PM",
+      "user": "admin",
+      "action": "ADMIN_LOGIN",
+      "details": "Administrator authenticated via secure password hash",
+      "category": "auth"
+    },
+    {
+      "id": "act_1791482666749_287j",
+      "timestamp": "10/8/2026, 6:04:26 PM",
+      "user": "admin",
+      "action": "TASK_REMOVED",
+      "details": "Task #1 (\"Subscribe to YouTube Channel & Watch 1 Min\") removed by @admin. Previous status: Approved. Reason: Removed by administrator",
+      "category": "admin"
+    },
+    {
+      "id": "act_1791368420251_vj76",
+      "timestamp": "10/7/2026, 10:20:20 AM",
+      "user": "admin",
+      "action": "TASK_REMOVED",
+      "details": "Task #1791366089732 (\"sign in\") removed by @admin. Previous status: Approved. Reason: Removed by administrator",
+      "category": "admin"
     },
     {
       "id": "act_1791366210354_y4uw",
@@ -662,6 +726,34 @@
     }
   ],
   "messages": [
+    {
+      "id": "msg_appr_1791482756686",
+      "from": "system",
+      "to": "worker_1791482756597",
+      "jobId": 1791482756672,
+      "jobTitle": "Complete Survey & Submit ID",
+      "text": "🎉 Your task has been approved! ৳15.00 has been credited to your available balance for task \"Complete Survey & Submit ID\". (Task #TASK-1791482756672)",
+      "timestamp": "06:05 PM",
+      "isRead": false
+    },
+    {
+      "id": "msg_sub_1791482756681",
+      "from": "system",
+      "to": "owner_1791482756597",
+      "jobId": 1791482756672,
+      "jobTitle": "Complete Survey & Submit ID",
+      "text": "📥 New task submission from @worker_1791482756597 for task: \"Complete Survey & Submit ID\". Please inspect proof in your Dashboard.",
+      "timestamp": "06:05 PM",
+      "isRead": false
+    },
+    {
+      "id": "msg_dep_1791482756663",
+      "from": "system",
+      "to": "owner_1791482756597",
+      "text": "✅ Deposit verified! ৳100 added to your wallet balance (TrxID: TRX_1791482756597).",
+      "timestamp": "06:05 PM",
+      "isRead": false
+    },
     {
       "id": "msg_wd_appr_1791366332041",
       "from": "admin",
@@ -838,7 +930,6 @@
   "maintenanceMessage": "Website is undergoing scheduled maintenance. We will be back shortly!",
   "user": {
     "username": "admin",
-    "password": "work6t7admin87358#45#$6@",
     "name": "Work 6T7 Admin",
     "email": "admin@work6t7.bd",
     "bio": "Platform Administrator & Quality Assurance",
@@ -849,6 +940,8 @@
     "isAdmin": true,
     "joinedAt": "2026-01-01",
     "phone": "",
-    "isBanned": false
+    "isBanned": false,
+    "passwordSalt": "9ac13da789e159f7200572836b18752b",
+    "passwordHash": "754963dc38e22f62e3b89bab02f1f85864da602b20bfab2169b09bdac88a8974c844defa1c96fa5a749e4178e5f9c67622e8fa2f6d1d86ced8e2524b0f4da283"
   }
 }

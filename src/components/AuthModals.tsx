@@ -226,31 +226,61 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
     onClose();
   };
 
-  // Handle Admin Access
-  const handleAdminSubmit = (e: React.FormEvent) => {
+  // Handle Admin Access (Secure server-side hash verification, no plaintext password in frontend)
+  const handleAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const SECRET_ADMIN_PASSCODE = 'work6t7admin87358#45#$6@';
-
-    if (adminPassword === SECRET_ADMIN_PASSCODE) {
-      let adminAccount = allUsers.find(u => u.isAdmin || u.username === 'admin');
-      if (!adminAccount) {
-        adminAccount = {
-          username: 'admin',
-          password: SECRET_ADMIN_PASSCODE,
-          name: 'Work 6T7 Admin',
-          balance: 50.0,
-          earnings: 0,
-          refCode: 'W6T7-ADMIN',
-          isAdmin: true,
-          joinedAt: '2026-01-01',
-        };
-      }
-      onLoginSuccess({ ...adminAccount, isAdmin: true });
-      onShowToast('Admin authentication confirmed. Access granted.', 'success');
-      onClose();
-    } else {
-      onShowToast('Incorrect admin passcode. Access denied.', 'error');
+    const cleanPass = adminPassword.trim();
+    if (!cleanPass) {
+      onShowToast('Please enter the administrator passcode.', 'error');
+      return;
     }
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/auth/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: cleanPass }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          setIsSubmitting(false);
+          onLoginSuccess({ ...data.user, isAdmin: true });
+          onShowToast('Admin authentication confirmed. Access granted.', 'success');
+          onClose();
+          return;
+        }
+      } else {
+        const errData = await res.json().catch(() => null);
+        setIsSubmitting(false);
+        onShowToast(errData?.error || 'Incorrect admin passcode. Access denied.', 'error');
+        return;
+      }
+    } catch {
+      // Fallback: attempt verification with standard login endpoint
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier: 'admin', password: cleanPass }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user && data.user.isAdmin) {
+            setIsSubmitting(false);
+            onLoginSuccess({ ...data.user, isAdmin: true });
+            onShowToast('Admin authentication confirmed. Access granted.', 'success');
+            onClose();
+            return;
+          }
+        }
+      } catch {}
+    }
+
+    setIsSubmitting(false);
+    onShowToast('Incorrect admin passcode. Access denied.', 'error');
   };
 
   return (

@@ -333,12 +333,14 @@ export default function App() {
     }));
   };
 
-  // Post Job Handler (Deducts ৳10 fee + worker escrow budget)
-  const handlePostJob = (newJob: Job, newTransactions: Transaction[], totalDeduction: number) => {
+  // Post Job Handler (Deducts ৳10 fee + worker escrow budget into reservedBalance)
+  const handlePostJob = (newJob: Job, newTransactions: Transaction[], totalDeduction: number, escrowAmount?: number) => {
     if (!state.user) return;
+    const escrow = typeof escrowAmount === 'number' ? escrowAmount : Math.max(0, totalDeduction - (state.user.isAdmin ? 0 : 10));
     const updatedUser: User = {
       ...state.user,
-      balance: state.user.balance - totalDeduction,
+      balance: Math.max(0, state.user.balance - totalDeduction),
+      reservedBalance: (state.user.reservedBalance || 0) + escrow,
     };
 
     setState(prev => ({
@@ -356,7 +358,22 @@ export default function App() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: state.user.username, jobData: newJob }),
-    }).catch(() => {});
+    })
+      .then(async res => {
+        if (res.ok) {
+          const data = await res.json().catch(() => null);
+          if (data?.user) {
+            setState(prev => ({
+              ...prev,
+              user: { ...prev.user, ...data.user },
+              allUsers: prev.allUsers.map(u => 
+                u.username.toLowerCase() === data.user.username.toLowerCase() ? { ...u, ...data.user } : u
+              ),
+            }));
+          }
+        }
+      })
+      .catch(() => {});
   };
 
   // Submit Proof for Job Handler
@@ -445,7 +462,7 @@ export default function App() {
     showToast(`Task proof submitted! Employer @${job.poster} will review your submission.`, 'success');
   };
 
-  // Employer Approves Worker Application (Atomic Transfer: User A -৳Reward -> User B +৳Reward)
+  // Employer Approves Worker Application (Atomic Transfer: Released from Owner Reserved Escrow -> Worker Available Balance)
   const handleApproveApplication = async (appId: number) => {
     const app = state.applications.find(a => a.id === appId);
     if (!app || app.status !== 'Pending') {
@@ -464,9 +481,7 @@ export default function App() {
     }
 
     // Find User A (Employer) and User B (Worker)
-    const employerUser = state.allUsers.find(u => u.username.toLowerCase() === job.poster.toLowerCase());
     const workerUser = state.allUsers.find(u => u.username.toLowerCase() === app.user.toLowerCase());
-
     if (!workerUser) {
       showToast('Worker account not found.', 'error');
       return;
@@ -474,14 +489,98 @@ export default function App() {
 
     const payout = app.pay;
 
-    // BALANCE CHECK: Task Owner must have sufficient funds (unless Admin)
-    if (employerUser && !employerUser.isAdmin && employerUser.balance < payout) {
-      showToast(
-        `Insufficient wallet balance! Task owner @${job.poster} needs at least ৳${payout.toFixed(2)} to approve this worker. Please deposit funds.`,
-        'error'
+    // Optimistic UI update: release from Owner's reserved escrow and credit to Worker available balance
+    setState(prev => {
+      const nextUsers = prev.allUsers.map(u => {
+        if (u.username.toLowerCase() === job.poster.toLowerCase() && !u.isAdmin) {
+          return {
+            ...u,
+            reservedBalance: Math.max(0, (u.reservedBalance || 0) - payout),
+          };
+        }
+        if (u.username.toLowerCase() === app.user.toLowerCase()) {
+          return {
+            ...u,
+            balance: u.balance + payout,
+            earnings: (u.earnings || 0) + payout,
+          };
+        }
+        return u;
+      });
+
+      let currentUser = prev.user;
+      if (currentUser) {
+        if (currentUser.username.toLowerCase() === job.poster.toLowerCase() && !currentUser.isAdmin) {
+          currentUser = {
+            ...currentUser,
+            reservedBalance: Math.max(0, (currentUser.reservedBalance || 0) - payout),
+          };
+        } else if (currentUser.username.toLowerCase() === app.user.toLowerCase()) {
+          currentUser = {
+            ...currentUser,
+            balance: currentUser.balance + payout,
+            earnings: (currentUser.earnings || 0) + payout,
+          };
+        }
+      }
+
+      const nextApps = prev.applications.map(a =>
+        a.id === appId
+          ? { ...a, status: 'Approved' as const, reviewedAt: new Date().toLocaleDateString() }
+          : a
       );
-      return;
-    }
+      const nextJobs = prev.jobs.map(j => {
+        if (j.id === job.id) {
+          const newDone = Math.min(j.needed, (j.done || 0) + 1);
+          return {
+            ...j,
+            done: newDone,
+            spentBudget: (j.spentBudget || 0) + payout,
+            status: newDone >= j.needed ? ('Completed' as const) : j.status,
+          };
+        }
+        return j;
+      });
+
+      const nextTransactions: Transaction[] = [
+        {
+          id: `tx_${Date.now()}_task_pay`,
+          user: job.poster,
+          type: 'Worker Payment Released',
+          amount: -payout,
+          direction: 'out',
+          taskId: job.id,
+          submissionId: app.id,
+          status: 'Success',
+          date: new Date().toLocaleDateString(),
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          details: `Worker reward released to @${app.user} from reserved escrow for "${job.title}" (Task #TASK-${job.id})`,
+        },
+        {
+          id: `tx_${Date.now() + 1}_task_reward`,
+          user: app.user,
+          type: 'Task Reward',
+          amount: payout,
+          direction: 'in',
+          taskId: job.id,
+          submissionId: app.id,
+          status: 'Success',
+          date: new Date().toLocaleDateString(),
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          details: `Task Reward from @${job.poster} for "${job.title}" (Task #TASK-${job.id})`,
+        },
+        ...prev.transactions,
+      ];
+
+      return {
+        ...prev,
+        allUsers: nextUsers,
+        user: currentUser,
+        applications: nextApps,
+        jobs: nextJobs,
+        transactions: nextTransactions,
+      };
+    });
 
     try {
       const res = await fetch('/api/financial/approve-task', {
@@ -595,14 +694,22 @@ export default function App() {
     setState(prev => {
       const nextUsers = prev.allUsers.map(u => {
         if (u.username.toLowerCase() === job.poster.toLowerCase() && unusedEscrow > 0) {
-          return { ...u, balance: u.balance + unusedEscrow };
+          return { 
+            ...u, 
+            balance: u.balance + unusedEscrow,
+            reservedBalance: Math.max(0, (u.reservedBalance || 0) - unusedEscrow),
+          };
         }
         return u;
       });
 
       let currentUser = prev.user;
       if (currentUser && currentUser.username.toLowerCase() === job.poster.toLowerCase() && unusedEscrow > 0) {
-        currentUser = { ...currentUser, balance: currentUser.balance + unusedEscrow };
+        currentUser = { 
+          ...currentUser, 
+          balance: currentUser.balance + unusedEscrow,
+          reservedBalance: Math.max(0, (currentUser.reservedBalance || 0) - unusedEscrow),
+        };
       }
 
       const nextJobs = prev.jobs.map(j => j.id === jobId ? { ...j, status: 'Cancelled' as const } : j);
@@ -638,25 +745,24 @@ export default function App() {
 
       return {
         ...prev,
-        user: currentUser,
         allUsers: nextUsers,
+        user: currentUser,
         jobs: nextJobs,
         transactions: nextTransactions,
         messages: nextMessages,
       };
     });
 
-    // Sync with backend API
+    // Sync with server
     fetch('/api/financial/cancel-task', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jobId, callerUsername: state.user?.username, currentState: state })
+      body: JSON.stringify({ jobId, callerUsername: state.user?.username }),
     }).catch(() => {});
 
     showToast(`Task #${jobId} cancelled. ৳${unusedEscrow.toFixed(2)} refunded to your wallet.`, 'info');
   };
 
-  // ADMIN: Approve Job Submission -> Published on Marketplace
   // ADMIN: Approve Job Submission -> Published on Marketplace
   const handleAdminApproveJob = async (jobId: number | string) => {
     const targetJob = state.jobs.find(j => String(j.id) === String(jobId) || Number(j.id) === Number(jobId));

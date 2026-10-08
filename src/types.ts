@@ -2,12 +2,15 @@ export interface User {
   id?: string | number;
   username: string;
   password?: string;
+  passwordSalt?: string;
+  passwordHash?: string;
   name: string;
   email?: string;
   phone?: string;
   bio?: string;
   profilePhoto?: string;
   balance: number;
+  reservedBalance?: number;
   earnings: number;
   refCode: string;
   referredBy?: string;
@@ -35,6 +38,7 @@ export interface Job {
   deadline?: string;
   deadlineTimestamp?: number;
   imageUrl?: string;
+  escrowBudget?: number;
   totalBudget?: number;
   spentBudget?: number;
   status: JobStatus;
@@ -75,6 +79,7 @@ export interface Application {
 export type TransactionType = 
   | 'Task Payment'
   | 'Task Reward' 
+  | 'Worker Payment Released'
   | 'Task Budget Reserve' 
   | 'Task Budget Refund' 
   | 'Job Posting Fee' 

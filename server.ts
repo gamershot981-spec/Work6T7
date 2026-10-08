@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -10,6 +11,28 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: '25mb' }));
+
+// Cryptographic hash configuration for Admin Panel access
+const ADMIN_PASSWORD_SALT = '9ac13da789e159f7200572836b18752b';
+const ADMIN_PASSWORD_HASH = '754963dc38e22f62e3b89bab02f1f85864da602b20bfab2169b09bdac88a8974c844defa1c96fa5a749e4178e5f9c67622e8fa2f6d1d86ced8e2524b0f4da283';
+
+function verifyHash(password: string, salt: string, hash: string): boolean {
+  try {
+    const computed = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+    return crypto.timingSafeEqual(Buffer.from(computed, 'hex'), Buffer.from(hash, 'hex'));
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeUser(user: any) {
+  if (!user) return user;
+  const copy = { ...user };
+  delete copy.password;
+  delete copy.passwordSalt;
+  delete copy.passwordHash;
+  return copy;
+}
 
 // Server-side database file persistence
 const DATA_DIR = path.resolve(__dirname, 'data');
@@ -27,12 +50,14 @@ function getDefaultServerState() {
     allUsers: [
       {
         username: 'admin',
-        password: 'work6t7admin87358#45#$6@',
+        passwordSalt: ADMIN_PASSWORD_SALT,
+        passwordHash: ADMIN_PASSWORD_HASH,
         name: 'Work 6T7 Admin',
         email: 'admin@work6t7.bd',
         bio: 'Platform Administrator & Quality Assurance',
         profilePhoto: 'https://api.dicebear.com/7.x/bottts/svg?seed=admin6t7',
         balance: 50.0,
+        reservedBalance: 0,
         earnings: 0,
         refCode: 'W6T7-ADMIN',
         isAdmin: true,
@@ -223,10 +248,21 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
   const cleanPass = (password || '').trim();
 
   const user = state.allUsers?.find((u: any) => 
-    (u.username.toLowerCase() === cleanId || (u.email && u.email.toLowerCase() === cleanId)) && u.password === cleanPass
+    (u.username.toLowerCase() === cleanId || (u.email && u.email.toLowerCase() === cleanId))
   );
 
   if (!user) {
+    return res.status(401).json({ error: 'Invalid username or password' });
+  }
+
+  let isPasswordValid = false;
+  if (user.passwordSalt && user.passwordHash) {
+    isPasswordValid = verifyHash(cleanPass, user.passwordSalt, user.passwordHash);
+  } else if (user.password) {
+    isPasswordValid = user.password === cleanPass;
+  }
+
+  if (!isPasswordValid) {
     return res.status(401).json({ error: 'Invalid username or password' });
   }
 
@@ -243,15 +279,50 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
 
   res.json({
     success: true,
-    user,
+    user: sanitizeUser(user),
     wallet: {
       availableBalance: user.balance,
+      reservedBalance: user.reservedBalance || 0,
       totalEarned: user.earnings || 0,
       transactions: userTransactions,
       deposits: userDeposits,
       withdrawals: userWithdrawals,
     }
   });
+});
+
+// AUTH ADMIN LOGIN (Authoritative Password Hash Verification)
+app.post('/api/auth/admin-login', (req: Request, res: Response) => {
+  const { password } = req.body;
+  const state = loadState();
+  const cleanPass = (password || '').trim();
+
+  const admin = state.allUsers?.find((u: any) => u.isAdmin || u.username.toLowerCase() === 'admin');
+  const salt = admin?.passwordSalt || ADMIN_PASSWORD_SALT;
+  const hash = admin?.passwordHash || ADMIN_PASSWORD_HASH;
+
+  if (!cleanPass || !verifyHash(cleanPass, salt, hash)) {
+    return res.status(401).json({ error: 'Incorrect admin passcode. Access denied.' });
+  }
+
+  recordActivity(state, 'admin', 'ADMIN_LOGIN', 'Administrator authenticated via secure password hash', 'auth');
+  saveState(state);
+
+  const sanitized = sanitizeUser(admin || {
+    username: 'admin',
+    name: 'Work 6T7 Admin',
+    email: 'admin@work6t7.bd',
+    bio: 'Platform Administrator',
+    profilePhoto: 'https://api.dicebear.com/7.x/bottts/svg?seed=admin6t7',
+    balance: 50.0,
+    reservedBalance: 0,
+    earnings: 0,
+    refCode: 'W6T7-ADMIN',
+    isAdmin: true,
+    joinedAt: '2026-01-01',
+  });
+
+  res.json({ success: true, user: sanitized });
 });
 
 // AUTH REGISTER (Creates User with ৳5 Bonus in Database & Referral Bonus)
@@ -477,7 +548,7 @@ app.post('/api/wallet/withdraw', (req: Request, res: Response) => {
   res.json({ success: true, message: 'Withdrawal request submitted for admin review.', withdrawal: newWithdrawal, transaction: newTx, user, state });
 });
 
-// ATOMIC TASK POSTING (Only ৳10 posting fee deducted upon creation; worker reward is deducted upon approval)
+// ATOMIC TASK POSTING (Worker payment budget is held in reserved escrow; ৳10 platform fee deducted)
 app.post('/api/tasks/post', (req: Request, res: Response) => {
   const { username, jobData } = req.body;
   const state = loadState();
@@ -485,17 +556,22 @@ app.post('/api/tasks/post', (req: Request, res: Response) => {
   const user = state.allUsers?.find((u: any) => u.username.toLowerCase() === (username || '').toLowerCase());
   if (!user) return res.status(404).json({ error: 'User not found' });
 
-  const needed = Number(jobData.needed);
-  const pay = Number(jobData.pay);
+  const needed = Math.max(1, Number(jobData.needed) || 1);
+  const pay = Math.max(1, Number(jobData.pay) || 1);
+  const workerEscrow = pay * needed;
   const postingFee = user.isAdmin ? 0 : 10;
+  const totalRequired = user.isAdmin ? 0 : (workerEscrow + postingFee);
 
-  if (user.balance < postingFee && !user.isAdmin) {
-    return res.status(400).json({ error: `Insufficient wallet balance! Task posting fee is ৳${postingFee.toFixed(2)}. Available: ৳${user.balance.toFixed(2)}` });
+  if (!user.isAdmin && user.balance < totalRequired) {
+    return res.status(400).json({ 
+      error: `Insufficient available balance! Required: ৳${totalRequired.toFixed(2)} (৳${workerEscrow.toFixed(2)} worker escrow + ৳${postingFee.toFixed(2)} post fee). Available: ৳${user.balance.toFixed(2)}` 
+    });
   }
 
-  // Deduct only posting fee from user on server
-  if (!user.isAdmin && postingFee > 0) {
-    user.balance = Math.max(0, user.balance - postingFee);
+  // Deduct from Available Balance & lock into Reserved Escrow
+  if (!user.isAdmin) {
+    user.balance = Math.max(0, user.balance - totalRequired);
+    user.reservedBalance = (user.reservedBalance || 0) + workerEscrow;
   }
 
   const jobId = jobData.id ? Number(jobData.id) : Date.now();
@@ -511,6 +587,8 @@ app.post('/api/tasks/post', (req: Request, res: Response) => {
     pay,
     needed,
     done: 0,
+    escrowBudget: workerEscrow,
+    totalBudget: workerEscrow,
     spentBudget: 0,
     inst: jobData.inst,
     requiredProof: jobData.requiredProof || 'Screenshot and user details',
@@ -522,6 +600,22 @@ app.post('/api/tasks/post', (req: Request, res: Response) => {
   };
 
   const newTransactions: any[] = [];
+  if (workerEscrow > 0 && !user.isAdmin) {
+    newTransactions.push({
+      id: `tx_${jobId}_escrow`,
+      user: user.username,
+      type: 'Escrow Hold',
+      amount: -workerEscrow,
+      direction: 'out',
+      taskId: jobId,
+      status: 'Success',
+      date: txDate,
+      time: txTime,
+      details: `Worker reward budget reserved in escrow for Task #${jobId} (${needed} slots * ৳${pay.toFixed(2)})`,
+      description: `Task worker budget reserved in escrow for "${jobData.title}"`,
+    });
+  }
+
   if (postingFee > 0) {
     newTransactions.push({
       id: `tx_${jobId}_fee`,
@@ -544,10 +638,10 @@ app.post('/api/tasks/post', (req: Request, res: Response) => {
   if (!state.transactions) state.transactions = [];
   state.transactions.unshift(...newTransactions);
 
-  recordActivity(state, user.username, 'TASK_POSTED', `Created new task "${jobData.title}" (Posting Fee: ৳${postingFee})`, 'task');
+  recordActivity(state, user.username, 'TASK_POSTED', `Created new task "${jobData.title}" (Escrow: ৳${workerEscrow}, Fee: ৳${postingFee})`, 'task');
   saveState(state);
 
-  res.json({ success: true, job: newJob, transactions: newTransactions, user, state });
+  res.json({ success: true, job: newJob, transactions: newTransactions, user: sanitizeUser(user), state });
 });
 
 // TASK PROOF SUBMISSION (Fraud check: no duplicates, no self-apply)
@@ -731,16 +825,16 @@ app.post('/api/financial/approve-task', (req: Request, res: Response) => {
 
   const employerUser = state.allUsers?.find((u: any) => u.username.toLowerCase() === job.poster.toLowerCase());
 
-  // Balance validation for employer (if not admin)
-  if (employerUser && !employerUser.isAdmin && employerUser.balance < payout) {
-    return res.status(400).json({
-      error: `Insufficient balance! Task owner requires at least ৳${payout.toFixed(2)} in wallet to approve this task.`,
-    });
-  }
-
-  // ATOMIC SERVER-SIDE TRANSFER: Owner -Reward -> Worker +Reward
+  // ATOMIC SERVER-SIDE TRANSFER: Deduct from Owner's Reserved Escrow -> Worker Available Balance
   if (employerUser && !employerUser.isAdmin) {
-    employerUser.balance = Math.max(0, employerUser.balance - payout);
+    if ((employerUser.reservedBalance || 0) >= payout) {
+      employerUser.reservedBalance -= payout;
+    } else {
+      const fromReserved = employerUser.reservedBalance || 0;
+      employerUser.reservedBalance = 0;
+      const remaining = payout - fromReserved;
+      employerUser.balance = Math.max(0, (employerUser.balance || 0) - remaining);
+    }
   }
   workerUser.balance = (workerUser.balance || 0) + payout;
   workerUser.earnings = (workerUser.earnings || 0) + payout;
@@ -772,7 +866,7 @@ app.post('/api/financial/approve-task', (req: Request, res: Response) => {
   state.transactions.unshift({
     id: `tx_${Date.now()}_task_pay`,
     user: job.poster,
-    type: 'Task Payment',
+    type: 'Worker Payment Released',
     amount: -payout,
     direction: 'out',
     taskId: job.id,
@@ -781,7 +875,7 @@ app.post('/api/financial/approve-task', (req: Request, res: Response) => {
     status: 'Success',
     date: txDate,
     time: txTime,
-    details: `Task Payment to @${workerUser.username} for "${job.title}" (Task #TASK-${job.id})`,
+    details: `Worker reward released to @${workerUser.username} from reserved escrow for "${job.title}" (Task #TASK-${job.id})`,
   });
 
   state.transactions.unshift({
@@ -807,7 +901,7 @@ app.post('/api/financial/approve-task', (req: Request, res: Response) => {
     to: workerUser.username,
     jobId: job.id,
     jobTitle: job.title,
-    text: `🎉 Your task has been approved! ৳${payout.toFixed(2)} has been credited to your wallet for task "${job.title}". (Task #TASK-${job.id})`,
+    text: `🎉 Your task has been approved! ৳${payout.toFixed(2)} has been credited to your available balance for task "${job.title}". (Task #TASK-${job.id})`,
     timestamp: txTime,
     isRead: false,
   });
@@ -821,6 +915,7 @@ app.post('/api/financial/approve-task', (req: Request, res: Response) => {
     state,
     payout,
     ownerBalance: employerUser ? employerUser.balance : undefined,
+    ownerReservedBalance: employerUser ? employerUser.reservedBalance : undefined,
     workerBalance: workerUser.balance,
   });
 });
@@ -905,6 +1000,7 @@ app.post('/api/jobs/remove', (req: Request, res: Response) => {
 
   if (owner && hadEscrowHold && unusedEscrow > 0 && previousStatus !== 'Completed') {
     owner.balance += unusedEscrow;
+    owner.reservedBalance = Math.max(0, (owner.reservedBalance || 0) - unusedEscrow);
 
     if (!state.transactions) state.transactions = [];
     state.transactions.unshift({
@@ -1007,6 +1103,7 @@ app.post('/api/jobs/manage-approval', (req: Request, res: Response) => {
     const owner = state.allUsers?.find((u: any) => u.username.toLowerCase() === job.poster.toLowerCase());
     if (owner && hadEscrowHold && escrowRefund > 0) {
       owner.balance += escrowRefund;
+      owner.reservedBalance = Math.max(0, (owner.reservedBalance || 0) - escrowRefund);
 
       if (!state.transactions) state.transactions = [];
       state.transactions.unshift({
@@ -1114,6 +1211,7 @@ app.post('/api/financial/cancel-task', (req: Request, res: Response) => {
   const owner = state.allUsers?.find((u: any) => u.username.toLowerCase() === job.poster.toLowerCase());
   if (owner && unusedEscrow > 0) {
     owner.balance += unusedEscrow;
+    owner.reservedBalance = Math.max(0, (owner.reservedBalance || 0) - unusedEscrow);
 
     if (!state.transactions) state.transactions = [];
     state.transactions.unshift({

@@ -13,6 +13,8 @@ import {
   MessageSquare,
   AlertTriangle,
   FileText,
+  Lock,
+  Coins,
   Image as ImageIcon
 } from 'lucide-react';
 
@@ -144,11 +146,29 @@ export const WalletView: React.FC<WalletViewProps> = ({
               ৳{currentUser.balance.toFixed(2)}
             </div>
             <p className="text-xs text-slate-400">
-              Only approved funds are available to spend or withdraw.
+              Only available funds can be spent on new tasks or withdrawn.
             </p>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-slate-800 space-y-2 text-xs">
+          <div className="mt-6 pt-4 border-t border-slate-800 space-y-2.5 text-xs">
+            <div className="flex items-center justify-between text-slate-300">
+              <span className="flex items-center gap-1.5 text-indigo-400 font-medium">
+                <Lock className="w-3.5 h-3.5" />
+                <span>Reserved for Tasks (Escrow):</span>
+              </span>
+              <span className="font-mono font-bold text-indigo-300">
+                ৳{(currentUser.reservedBalance || 0).toFixed(2)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-slate-300">
+              <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                <Coins className="w-3.5 h-3.5" />
+                <span>Total Earned (Worker):</span>
+              </span>
+              <span className="font-mono font-bold text-emerald-400">
+                ৳{(currentUser.earnings || 0).toFixed(2)}
+              </span>
+            </div>
             <div className="flex items-center justify-between text-slate-300">
               <span className="flex items-center gap-1.5 text-amber-400">
                 <Clock className="w-3.5 h-3.5" />

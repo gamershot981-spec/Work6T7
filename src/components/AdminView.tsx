@@ -135,8 +135,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const pendingJobs = useMemo(() => {
     return jobs.filter(
-      j => (j.status === 'Pending Approval' || j.status === 'Pending' || j.status === 'Draft') &&
-           !j.isDeleted && j.status !== 'Removed' && j.status !== 'Deleted'
+      j => (j.status === 'Pending Approval' || j.status === 'Draft') && !j.isDeleted
     );
   }, [jobs]);
 

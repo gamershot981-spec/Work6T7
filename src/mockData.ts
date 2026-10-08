@@ -6,12 +6,12 @@ export const DEFAULT_DEPOSIT_NUMBER = '01774922356';
 const defaultUsers: User[] = [
   {
     username: 'admin',
-    password: 'work6t7admin87358#45#$6@',
     name: 'Work 6T7 Admin',
     email: 'admin@work6t7.bd',
     bio: 'Platform Administrator & Quality Assurance',
     profilePhoto: 'https://api.dicebear.com/7.x/bottts/svg?seed=admin6t7',
     balance: 50.0,
+    reservedBalance: 0,
     earnings: 0,
     refCode: 'W6T7-ADMIN',
     isAdmin: true,
@@ -66,13 +66,14 @@ export function getInitialState(): AppState {
             };
           });
 
-        // Ensure admin user is always present with the updated secret passcode
+        // Ensure admin user is always present
         const adminIdx = cleanedUsers.findIndex((u: User) => u.isAdmin || u.username === 'admin');
         if (adminIdx !== -1) {
           cleanedUsers[adminIdx] = {
             ...cleanedUsers[adminIdx],
-            password: 'work6t7admin87358#45#$6@',
+            isAdmin: true,
           };
+          delete cleanedUsers[adminIdx].password;
         } else {
           cleanedUsers.unshift(defaultUsers[0]);
         }
