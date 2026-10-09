@@ -155,31 +155,10 @@ app.get('/api/state', (_req: Request, res: Response) => {
   res.json({ state });
 });
 
-app.post('/api/state/sync', (req: Request, res: Response) => {
-  const { state } = req.body;
-  if (state && Array.isArray(state.allUsers)) {
-    const existingState = loadState();
-    const mergedUsers = state.allUsers.map((u: any) => {
-      const existingUser = existingState.allUsers?.find((eu: any) => eu.username.toLowerCase() === u.username.toLowerCase());
-      return {
-        ...existingUser,
-        ...u,
-        // Preserve valid numeric balance, fallback to existing or initial 5.0
-        balance: typeof u.balance === 'number' && !isNaN(u.balance) ? u.balance : (typeof existingUser?.balance === 'number' ? existingUser.balance : 5.0),
-        earnings: typeof u.earnings === 'number' && !isNaN(u.earnings) ? u.earnings : (typeof existingUser?.earnings === 'number' ? existingUser.earnings : 0.0),
-      };
-    });
-
-    const newState = {
-      ...existingState,
-      ...state,
-      allUsers: mergedUsers,
-    };
-
-    saveState(newState);
-    return res.json({ success: true, message: 'State synced with server database.', state: newState });
-  }
-  res.status(400).json({ error: 'Missing or invalid state body' });
+app.post('/api/state/sync', (_req: Request, res: Response) => {
+  // Server is the single authoritative source of truth. Prevent client from overwriting jobs, applications, or transactions.
+  const existingState = loadState();
+  res.json({ success: true, message: 'Server database is authoritative state.', state: existingState });
 });
 
 // USER-SPECIFIC WALLET & FINANCIAL ENDPOINT (Permanent Database Record)
@@ -219,6 +198,7 @@ app.get('/api/user/wallet/:username', (req: Request, res: Response) => {
       bio: user.bio,
       profilePhoto: user.profilePhoto,
       balance: user.balance,
+      reservedBalance: user.reservedBalance || 0,
       earnings: user.earnings || 0,
       refCode: user.refCode,
       isAdmin: !!user.isAdmin,
@@ -228,6 +208,7 @@ app.get('/api/user/wallet/:username', (req: Request, res: Response) => {
     },
     wallet: {
       availableBalance: user.balance,
+      reservedBalance: user.reservedBalance || 0,
       pendingBalance: pendingDepositTotal,
       pendingWithdrawal: pendingWithdrawalTotal,
       totalEarned: user.earnings || 0,
@@ -595,7 +576,7 @@ app.post('/api/tasks/post', (req: Request, res: Response) => {
     deadline: jobData.deadline,
     deadlineTimestamp: jobData.deadlineTimestamp,
     imageUrl: jobData.imageUrl,
-    status: user.isAdmin ? 'Active' : 'Pending Approval', // Admin review required for non-admin
+    status: 'Active', // Escrow is locked from owner balance; published immediately to marketplace
     createdAt: txDate,
   };
 

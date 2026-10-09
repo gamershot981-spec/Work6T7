@@ -142,7 +142,7 @@ export const PostJobModal: React.FC<PostJobModalProps> = ({
       escrowBudget: workerEscrowBudget,
       totalBudget: workerEscrowBudget,
       spentBudget: 0,
-      status: currentUser.isAdmin ? 'Approved' : 'Pending Approval', // User jobs are Pending Admin Approval
+      status: 'Active', // Active immediately: Escrow is locked and workers can work on it
       createdAt: new Date().toISOString().split('T')[0],
     };
 
@@ -189,7 +189,7 @@ export const PostJobModal: React.FC<PostJobModalProps> = ({
     onShowToast(
       currentUser.isAdmin
         ? 'Task published directly as Admin!'
-        : `Task submitted! ৳${workerEscrowBudget.toFixed(2)} reserved in escrow & ৳${PLATFORM_FEE.toFixed(2)} posting fee deducted. Status: Pending Admin Approval.`,
+        : `Task published! ৳${workerEscrowBudget.toFixed(2)} reserved in escrow & ৳${PLATFORM_FEE.toFixed(2)} fee deducted. Now Active in Marketplace!`,
       'success'
     );
     onClose();

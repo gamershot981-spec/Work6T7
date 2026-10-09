@@ -87,15 +87,17 @@ export default function App() {
                     ...currentUser,
                     ...freshUser,
                     balance: typeof freshUser.balance === 'number' ? freshUser.balance : currentUser.balance,
+                    reservedBalance: typeof freshUser.reservedBalance === 'number' ? freshUser.reservedBalance : (currentUser.reservedBalance || 0),
                     earnings: typeof freshUser.earnings === 'number' ? freshUser.earnings : currentUser.earnings,
                   };
                 }
               }
 
               // Server database is the single source of truth for users and balances
-              const mergedUsers = serverUsers.map(su => ({
+              const mergedUsers: User[] = serverUsers.map(su => ({
                 ...su,
                 balance: typeof su.balance === 'number' ? su.balance : 5.0,
+                reservedBalance: typeof su.reservedBalance === 'number' ? su.reservedBalance : 0.0,
                 earnings: typeof su.earnings === 'number' ? su.earnings : 0.0,
               }));
 
@@ -207,15 +209,9 @@ export default function App() {
     }, 3500);
   }, []);
 
-  // Sync to localStorage and persist to server database whenever state changes
+  // Sync state to localStorage for offline cache
   useEffect(() => {
     saveState(state);
-    // Background sync to server database
-    fetch('/api/state/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ state }),
-    }).catch(() => {});
   }, [state]);
 
   // Unread messages count for currentUser
@@ -255,6 +251,7 @@ export default function App() {
             ...freshUser,
             ...data.user,
             balance: typeof data.user.balance === 'number' ? data.user.balance : freshUser.balance,
+            reservedBalance: typeof data.user.reservedBalance === 'number' ? data.user.reservedBalance : (freshUser.reservedBalance || 0),
             earnings: typeof data.user.earnings === 'number' ? data.user.earnings : freshUser.earnings,
           };
         }
@@ -1861,6 +1858,7 @@ export default function App() {
         onLoginSuccess={handleLoginSuccess}
         onRegisterSuccess={handleRegisterSuccess}
         onShowToast={showToast}
+        onSwitchMode={m => setAuthModal(m)}
       />
 
       {/* 2. User Profile Modal */}

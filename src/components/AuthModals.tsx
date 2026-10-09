@@ -10,6 +10,7 @@ interface AuthModalsProps {
   onLoginSuccess: (user: User) => void;
   onRegisterSuccess: (newUser: User, newTxList: Transaction[], updatedReferrer?: User) => void;
   onShowToast: (msg: string, type?: 'success' | 'error') => void;
+  onSwitchMode?: (mode: 'login' | 'register' | 'admin') => void;
 }
 
 export const AuthModals: React.FC<AuthModalsProps> = ({
@@ -20,6 +21,7 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
   onLoginSuccess,
   onRegisterSuccess,
   onShowToast,
+  onSwitchMode,
 }) => {
   // Login State
   const [logIdentifier, setLogIdentifier] = useState('');
@@ -342,11 +344,34 @@ export const AuthModals: React.FC<AuthModalsProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2"
+                disabled={isSubmitting}
+                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                Sign In
+                {isSubmitting ? 'Signing In...' : 'Sign In'}
                 <ArrowRight className="w-4 h-4" />
               </button>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                {onSwitchMode && (
+                  <button
+                    type="button"
+                    onClick={() => onSwitchMode('register')}
+                    className="text-indigo-600 hover:underline font-medium"
+                  >
+                    Don't have an account? Register (৳5 Free)
+                  </button>
+                )}
+                {onSwitchMode && (
+                  <button
+                    type="button"
+                    onClick={() => onSwitchMode('admin')}
+                    className="font-bold text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded-md border border-amber-200 transition-colors flex items-center gap-1"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Admin Portal</span>
+                  </button>
+                )}
+              </div>
             </form>
           </div>
         )}

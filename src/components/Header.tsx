@@ -203,10 +203,11 @@ export const Header: React.FC<HeaderProps> = ({
           {!currentUser?.isAdmin && (
             <button
               onClick={() => onOpenAuth('admin')}
-              className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-              title="Admin Access"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-900 bg-amber-100/80 hover:bg-amber-200/90 border border-amber-300 rounded-lg transition-colors shadow-xs"
+              title="Admin Panel Login"
             >
-              <ShieldCheck className="w-4 h-4" />
+              <ShieldCheck className="w-4 h-4 text-amber-700" />
+              <span>Admin</span>
             </button>
           )}
         </div>
